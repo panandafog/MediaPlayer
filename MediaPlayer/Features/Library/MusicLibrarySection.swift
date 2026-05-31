@@ -9,6 +9,7 @@ enum MusicLibrarySection: String, CaseIterable, Identifiable {
     case songs
     case artists
     case albums
+    case playlists
 
     var id: Self {
         self
@@ -22,6 +23,8 @@ enum MusicLibrarySection: String, CaseIterable, Identifiable {
             "Artists"
         case .albums:
             "Albums"
+        case .playlists:
+            "Playlists"
         }
     }
 
@@ -33,6 +36,8 @@ enum MusicLibrarySection: String, CaseIterable, Identifiable {
             "music.mic"
         case .albums:
             "square.stack"
+        case .playlists:
+            "music.note.list"
         }
     }
 

@@ -41,4 +41,12 @@ struct MediaPlayerTests {
         #expect(PlaybackQueueWindow.items(from: items, startingAt: 999).last == 999)
     }
 
+    @Test func returnsItemsAfterCurrentQueueEntry() {
+        let items = Array(0..<5)
+
+        #expect(PlaybackQueueWindow.itemsAfterCurrent(in: items, currentIndex: 1) == [2, 3, 4])
+        #expect(PlaybackQueueWindow.itemsAfterCurrent(in: items, currentIndex: 4).isEmpty)
+        #expect(PlaybackQueueWindow.itemsAfterCurrent(in: items, currentIndex: nil).isEmpty)
+    }
+
 }

@@ -22,4 +22,15 @@ enum PlaybackQueueWindow {
 
         return Array(items[lowerBound..<upperBound])
     }
+
+    static func itemsAfterCurrent<Element>(
+        in items: [Element],
+        currentIndex: Int?
+    ) -> [Element] {
+        guard let currentIndex, items.indices.contains(currentIndex) else {
+            return []
+        }
+
+        return Array(items.dropFirst(currentIndex + 1))
+    }
 }

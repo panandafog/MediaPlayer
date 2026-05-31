@@ -15,6 +15,7 @@ final class MusicPlayerViewModel: ObservableObject {
     @Published private(set) var currentSong: Song?
     @Published private(set) var playbackStatus: MusicPlayer.PlaybackStatus = .stopped
     @Published private(set) var errorMessage: String?
+    @Published private(set) var queueSongs: [Song] = []
 
     let playbackTime = PlaybackTimeState()
     let currentSongState = CurrentSongState()
@@ -27,7 +28,6 @@ final class MusicPlayerViewModel: ObservableObject {
     private var stateCancellable: AnyCancellable?
     private var queueCancellable: AnyCancellable?
     private var playbackTimeCancellable: AnyCancellable?
-    private var playbackQueue: [Song] = []
     private var currentSongIndex: Int?
     private var lastObservedQueueEntryID: String?
     private var expectedQueueSongID: MusicItemID?
@@ -41,6 +41,13 @@ final class MusicPlayerViewModel: ObservableObject {
 
     var isPlaying: Bool {
         playbackStatus == .playing
+    }
+
+    var upNextSongs: [Song] {
+        PlaybackQueueWindow.itemsAfterCurrent(
+            in: queueSongs,
+            currentIndex: currentSongIndex
+        )
     }
 
     func play(_ song: Song, in queue: [Song]) async {
@@ -123,6 +130,10 @@ final class MusicPlayerViewModel: ObservableObject {
         playbackTime.update(to: normalizedTime)
     }
 
+    func playFromCurrentQueue(_ song: Song) async {
+        await play(song, in: queueSongs)
+    }
+
     func clearError() {
         errorMessage = nil
     }
@@ -196,13 +207,13 @@ final class MusicPlayerViewModel: ObservableObject {
             return
         }
 
-        guard let songIndex = playbackQueue.firstIndex(where: { $0.id == song.id }) else {
+        guard let songIndex = queueSongs.firstIndex(where: { $0.id == song.id }) else {
             updateCurrentSong(song)
             return
         }
 
         currentSongIndex = songIndex
-        updateCurrentSong(playbackQueue[songIndex])
+        updateCurrentSong(queueSongs[songIndex])
         playbackTime.update(to: 0)
     }
 
@@ -233,7 +244,7 @@ final class MusicPlayerViewModel: ObservableObject {
     }
 
     private func setPlaybackQueue(_ queue: [Song], startingAt song: Song) {
-        playbackQueue = queue
+        queueSongs = queue
         currentSongIndex = queue.firstIndex(where: { $0.id == song.id })
         lastObservedQueueEntryID = nil
         expectedQueueSongID = song.id
@@ -260,7 +271,7 @@ final class MusicPlayerViewModel: ObservableObject {
 
         let previousIndex = currentSongIndex
         let destinationIndex = currentSongIndex + offset
-        guard playbackQueue.indices.contains(destinationIndex) else {
+        guard queueSongs.indices.contains(destinationIndex) else {
             return nil
         }
 
@@ -281,11 +292,11 @@ final class MusicPlayerViewModel: ObservableObject {
     }
 
     private func selectPlaybackQueueSong(at index: Int) {
-        guard playbackQueue.indices.contains(index) else {
+        guard queueSongs.indices.contains(index) else {
             return
         }
 
-        let song = playbackQueue[index]
+        let song = queueSongs[index]
         currentSongIndex = index
         expectedQueueSongID = song.id
         updateCurrentSong(song)

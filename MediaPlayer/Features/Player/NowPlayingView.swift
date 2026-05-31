@@ -10,36 +10,45 @@ import SwiftUI
 
 struct NowPlayingView: View {
     @ObservedObject var player: MusicPlayerViewModel
+    @State private var isShowingQueue = false
 
     var body: some View {
-        if let song = player.currentSong {
-            NowPlayingContent(
-                song: song,
-                isPlaying: player.isPlaying,
-                playbackTime: player.playbackTime,
-                onPrevious: {
-                    Task {
-                        await player.skipToPreviousSong()
+        Group {
+            if let song = player.currentSong {
+                NowPlayingContent(
+                    song: song,
+                    isPlaying: player.isPlaying,
+                    playbackTime: player.playbackTime,
+                    onPrevious: {
+                        Task {
+                            await player.skipToPreviousSong()
+                        }
+                    },
+                    onTogglePlayback: {
+                        Task {
+                            await player.togglePlayback()
+                        }
+                    },
+                    onNext: {
+                        Task {
+                            await player.skipToNextSong()
+                        }
+                    },
+                    onSeek: player.seek,
+                    onShowQueue: {
+                        isShowingQueue = true
                     }
-                },
-                onTogglePlayback: {
-                    Task {
-                        await player.togglePlayback()
-                    }
-                },
-                onNext: {
-                    Task {
-                        await player.skipToNextSong()
-                    }
-                },
-                onSeek: player.seek
-            )
-        } else {
-            ContentUnavailableView(
-                "Nothing Playing",
-                systemImage: "music.note",
-                description: Text("Choose a track from your library to start playback.")
-            )
+                )
+            } else {
+                ContentUnavailableView(
+                    "Nothing Playing",
+                    systemImage: "music.note",
+                    description: Text("Choose a track from your library to start playback.")
+                )
+            }
+        }
+        .sheet(isPresented: $isShowingQueue) {
+            PlaybackQueueView(player: player)
         }
     }
 }
@@ -52,6 +61,7 @@ private struct NowPlayingContent: View {
     let onTogglePlayback: () -> Void
     let onNext: () -> Void
     let onSeek: (TimeInterval) -> Void
+    let onShowQueue: () -> Void
 
     var body: some View {
         GeometryReader { geometry in
@@ -103,6 +113,11 @@ private struct NowPlayingContent: View {
                         action: onNext
                     )
                 }
+
+                PlayerUtilityControls(
+                    song: song,
+                    onShowQueue: onShowQueue
+                )
             }
             .padding(metrics.outerPadding)
             .frame(maxWidth: .infinity, maxHeight: .infinity)

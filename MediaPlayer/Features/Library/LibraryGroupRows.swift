@@ -5,6 +5,7 @@
 //  Created by Codex on 31.05.2026.
 //
 
+import MusicKit
 import SwiftUI
 
 struct ArtistRow: View {
@@ -46,6 +47,25 @@ struct AlbumRow: View {
                 Text(LibraryItemCountFormatter.tracks(album.songs.count))
                     .font(.caption)
                     .foregroundStyle(.tertiary)
+            }
+        }
+    }
+}
+
+struct PlaylistRow: View {
+    let playlist: Playlist
+
+    var body: some View {
+        HStack(spacing: 12) {
+            SongArtwork(artwork: playlist.artwork, size: 48)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(playlist.name)
+                    .lineLimit(1)
+                Text(playlist.curatorName ?? "Playlist")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
         }
     }

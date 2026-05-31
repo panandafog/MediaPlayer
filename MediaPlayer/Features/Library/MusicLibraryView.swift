@@ -50,14 +50,14 @@ struct MusicLibraryView: View {
 
     @ViewBuilder
     private var authorizedContent: some View {
-        if library.songs.isEmpty, library.isLoading {
+        if library.isEmpty, library.isLoading {
             ProgressView("Loading your music library...")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else if library.songs.isEmpty {
+        } else if library.isEmpty {
             ContentUnavailableView(
                 "Your Music Library Is Empty",
                 systemImage: "music.note.list",
-                description: Text("Add music in the Music app, then refresh your library.")
+                description: Text("Add music or playlists in the Music app, then refresh your library.")
             )
         } else {
             sectionContent
@@ -121,6 +121,27 @@ struct MusicLibraryView: View {
                 }
                 .listStyle(.plain)
             }
+        case .playlists:
+            if library.filteredPlaylists.isEmpty {
+                noMatchesView
+            } else {
+                List {
+                    ForEach(library.filteredPlaylists) { playlist in
+                        NavigationLink {
+                            PlaylistDetailView(
+                                playlist: playlist,
+                                currentSongState: currentSongState,
+                                onPlay: onPlay
+                            )
+                        } label: {
+                            PlaylistRow(playlist: playlist)
+                        }
+                    }
+
+                    loadingFooter
+                }
+                .listStyle(.plain)
+            }
         }
     }
 
@@ -128,7 +149,7 @@ struct MusicLibraryView: View {
         ContentUnavailableView(
             "No Matching Items",
             systemImage: "magnifyingglass",
-            description: Text("Try a different song, album, or artist.")
+            description: Text("Try a different song, album, artist, or playlist.")
         )
     }
 

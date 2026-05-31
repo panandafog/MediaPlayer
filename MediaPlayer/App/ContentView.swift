@@ -25,8 +25,8 @@ struct ContentView: View {
                 currentSongState: player.currentSongState,
                 onPlay: play
             )
-            .navigationTitle("Music")
-            .searchable(text: $library.searchText, prompt: "Track, album, or artist")
+            .navigationTitle(library.section.title)
+            .searchable(text: $library.searchText, prompt: "Track, album, artist, or playlist")
             .toolbar {
                 if library.authorizationStatus == .authorized {
                     ToolbarItem(placement: .primaryAction) {
@@ -88,7 +88,7 @@ struct ContentView: View {
 
     private func refreshLibrary() {
         Task {
-            await library.loadSongs()
+            await library.loadLibrary()
         }
     }
 

@@ -21,6 +21,12 @@ final class MusicLibraryViewModel: ObservableObject {
     @Published private(set) var filteredSongs: [Song] = []
     @Published private(set) var filteredArtists: [LibraryArtist] = []
     @Published private(set) var filteredAlbums: [LibraryAlbum] = []
+    @Published private(set) var playlists: [Playlist] = [] {
+        didSet {
+            refreshFilteredContent()
+        }
+    }
+    @Published private(set) var filteredPlaylists: [Playlist] = []
     @Published private(set) var isLoading = false
     @Published private(set) var errorMessage: String?
     @Published var searchText = "" {
@@ -52,12 +58,17 @@ final class MusicLibraryViewModel: ObservableObject {
         songsBySortOption[sortOption] ?? []
     }
 
+    var isEmpty: Bool {
+        songs.isEmpty && playlists.isEmpty
+    }
+
     private func refreshFilteredContent() {
         let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !query.isEmpty else {
             filteredSongs = sortedSongs
             filteredArtists = artists
             filteredAlbums = albums
+            filteredPlaylists = playlists
             return
         }
 
@@ -73,6 +84,10 @@ final class MusicLibraryViewModel: ObservableObject {
             album.title.localizedCaseInsensitiveContains(query)
                 || album.artistName.localizedCaseInsensitiveContains(query)
         }
+        filteredPlaylists = playlists.filter { playlist in
+            playlist.name.localizedCaseInsensitiveContains(query)
+                || playlist.curatorName?.localizedCaseInsensitiveContains(query) == true
+        }
     }
 
     func loadIfAuthorized() async {
@@ -81,7 +96,7 @@ final class MusicLibraryViewModel: ObservableObject {
             return
         }
 
-        await loadSongs()
+        await loadLibrary()
     }
 
     func requestAuthorization() async {
@@ -90,10 +105,10 @@ final class MusicLibraryViewModel: ObservableObject {
             return
         }
 
-        await loadSongs()
+        await loadLibrary()
     }
 
-    func loadSongs() async {
+    func loadLibrary() async {
         guard !isLoading else {
             return
         }
@@ -106,7 +121,11 @@ final class MusicLibraryViewModel: ObservableObject {
         }
 
         do {
-            songs = try await service.fetchSongs()
+            async let loadedSongs = service.fetchSongs()
+            async let loadedPlaylists = service.fetchPlaylists()
+
+            songs = try await loadedSongs
+            playlists = try await loadedPlaylists
         } catch {
             report("Could not load your music library.", error: error)
         }

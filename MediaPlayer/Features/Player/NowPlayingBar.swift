@@ -16,51 +16,58 @@ struct NowPlayingBar: View {
     let onTogglePlayback: () -> Void
     let onNext: () -> Void
     let onSeek: (TimeInterval) -> Void
+    let onShowQueue: () -> Void
     let onOpenDetails: () -> Void
 
     var body: some View {
-        VStack(spacing: 0) {
-            Divider()
+        VStack(spacing: 8) {
+            PlaybackProgressSlider(
+                playbackTime: playbackTime.value,
+                duration: song.duration,
+                onSeek: onSeek
+            )
 
-            VStack(spacing: 8) {
-                PlaybackProgressSlider(
-                    playbackTime: playbackTime.value,
-                    duration: song.duration,
-                    onSeek: onSeek
+            HStack(spacing: 10) {
+                trackSummary
+
+                Spacer(minLength: 4)
+
+                AudioRoutePickerButton()
+                CompactPlayerOptionsMenu(
+                    song: song,
+                    onShowQueue: onShowQueue
                 )
-
-                HStack(spacing: 12) {
-                    trackSummary
-
-                    Spacer(minLength: 4)
-
 #if os(macOS)
-                    PlayerControlButton(
-                        title: "Open Mini Player",
-                        systemImage: "macwindow",
-                        action: onOpenDetails
-                    )
+                PlayerControlButton(
+                    title: "Open Mini Player",
+                    systemImage: "macwindow",
+                    action: onOpenDetails
+                )
 #endif
-                    PlayerControlButton(
-                        title: "Previous track",
-                        systemImage: "backward.fill",
-                        action: onPrevious
-                    )
-                    PlayerControlButton(
-                        title: isPlaying ? "Pause" : "Play",
-                        systemImage: isPlaying ? "pause.fill" : "play.fill",
-                        action: onTogglePlayback
-                    )
-                    PlayerControlButton(
-                        title: "Next track",
-                        systemImage: "forward.fill",
-                        action: onNext
-                    )
-                }
+                PlayerControlButton(
+                    title: "Previous track",
+                    systemImage: "backward.fill",
+                    action: onPrevious
+                )
+                PlayerControlButton(
+                    title: isPlaying ? "Pause" : "Play",
+                    systemImage: isPlaying ? "pause.fill" : "play.fill",
+                    action: onTogglePlayback
+                )
+                PlayerControlButton(
+                    title: "Next track",
+                    systemImage: "forward.fill",
+                    action: onNext
+                )
             }
-            .padding(12)
-            .background(.regularMaterial)
         }
+        .padding(12)
+        .glassEffect(
+            .regular,
+            in: RoundedRectangle(cornerRadius: 22, style: .continuous)
+        )
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
     }
 
     @ViewBuilder

@@ -10,6 +10,7 @@ import SwiftUI
 struct NowPlayingBarContainer: View {
     @ObservedObject var player: MusicPlayerViewModel
     let onOpenDetails: () -> Void
+    @State private var isShowingQueue = false
 
     var body: some View {
         Group {
@@ -34,9 +35,15 @@ struct NowPlayingBarContainer: View {
                         }
                     },
                     onSeek: player.seek,
+                    onShowQueue: {
+                        isShowingQueue = true
+                    },
                     onOpenDetails: onOpenDetails
                 )
             }
+        }
+        .sheet(isPresented: $isShowingQueue) {
+            PlaybackQueueView(player: player)
         }
         .alert(
             "Error",
