@@ -11,7 +11,7 @@ import SwiftUI
 struct MusicLibraryView: View {
     @ObservedObject var library: MusicLibraryViewModel
     let currentSong: Song?
-    let onPlay: (Song) -> Void
+    let onPlay: (Song, [Song]) -> Void
 
     var body: some View {
         libraryContent
@@ -59,32 +59,93 @@ struct MusicLibraryView: View {
                 systemImage: "music.note.list",
                 description: Text("Add music in the Music app, then refresh your library.")
             )
-        } else if library.filteredSongs.isEmpty {
-            ContentUnavailableView(
-                "No Matching Tracks",
-                systemImage: "magnifyingglass",
-                description: Text("Try a different track, album, or artist.")
-            )
         } else {
-            List {
-                ForEach(library.filteredSongs) { song in
-                    SongRow(
-                        song: song,
-                        isCurrent: currentSong?.id == song.id,
-                        onPlay: { onPlay(song) }
-                    )
-                    .equatable()
-                }
+            VStack(spacing: 0) {
+                MusicLibrarySectionPicker(selection: $library.section)
 
-                if library.isLoading {
-                    HStack {
-                        Spacer()
-                        ProgressView()
-                        Spacer()
-                    }
-                }
+                Divider()
+
+                sectionContent
             }
-            .listStyle(.plain)
+        }
+    }
+
+    @ViewBuilder
+    private var sectionContent: some View {
+        switch library.section {
+        case .songs:
+            if library.filteredSongs.isEmpty {
+                noMatchesView
+            } else {
+                SongListView(
+                    songs: library.filteredSongs,
+                    queue: library.sortedSongs,
+                    currentSong: currentSong,
+                    isLoading: library.isLoading,
+                    onPlay: onPlay
+                )
+            }
+        case .artists:
+            if library.filteredArtists.isEmpty {
+                noMatchesView
+            } else {
+                List {
+                    ForEach(library.filteredArtists) { artist in
+                        NavigationLink {
+                            ArtistDetailView(
+                                artist: artist,
+                                currentSong: currentSong,
+                                onPlay: onPlay
+                            )
+                        } label: {
+                            ArtistRow(artist: artist)
+                        }
+                    }
+
+                    loadingFooter
+                }
+                .listStyle(.plain)
+            }
+        case .albums:
+            if library.filteredAlbums.isEmpty {
+                noMatchesView
+            } else {
+                List {
+                    ForEach(library.filteredAlbums) { album in
+                        NavigationLink {
+                            AlbumDetailView(
+                                album: album,
+                                currentSong: currentSong,
+                                onPlay: onPlay
+                            )
+                        } label: {
+                            AlbumRow(album: album)
+                        }
+                    }
+
+                    loadingFooter
+                }
+                .listStyle(.plain)
+            }
+        }
+    }
+
+    private var noMatchesView: some View {
+        ContentUnavailableView(
+            "No Matching Items",
+            systemImage: "magnifyingglass",
+            description: Text("Try a different song, album, or artist.")
+        )
+    }
+
+    @ViewBuilder
+    private var loadingFooter: some View {
+        if library.isLoading {
+            HStack {
+                Spacer()
+                ProgressView()
+                Spacer()
+            }
         }
     }
 }

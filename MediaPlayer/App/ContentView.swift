@@ -23,9 +23,11 @@ struct ContentView: View {
             .navigationTitle("Music")
             .searchable(text: $library.searchText, prompt: "Track, album, or artist")
             .toolbar {
-                if library.authorizationStatus == .authorized {
+                if library.authorizationStatus == .authorized, library.section == .songs {
                     MusicLibrarySortMenu(selection: $library.sortOption)
+                }
 
+                if library.authorizationStatus == .authorized {
                     Button {
                         Task {
                             await library.loadSongs()
@@ -95,9 +97,9 @@ struct ContentView: View {
         player.errorMessage ?? library.errorMessage
     }
 
-    private func play(_ song: Song) {
+    private func play(_ song: Song, in queue: [Song]) {
         Task {
-            await player.play(song, in: library.sortedSongs)
+            await player.play(song, in: queue)
         }
     }
 
