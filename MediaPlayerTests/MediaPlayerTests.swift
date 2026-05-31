@@ -23,4 +23,22 @@ struct MediaPlayerTests {
         #expect(PlaybackProgress.normalizedTime(.infinity, duration: 120) == 0)
     }
 
+    @Test func limitsPlaybackQueueAroundSelectedItem() {
+        let items = Array(0..<1_000)
+        let window = PlaybackQueueWindow.items(from: items, startingAt: 500)
+
+        #expect(window.first == 450)
+        #expect(window.last == 700)
+        #expect(window.count == 251)
+    }
+
+    @Test func limitsPlaybackQueueAtCollectionEdges() {
+        let items = Array(0..<1_000)
+
+        #expect(PlaybackQueueWindow.items(from: items, startingAt: 10).first == 0)
+        #expect(PlaybackQueueWindow.items(from: items, startingAt: 10).last == 210)
+        #expect(PlaybackQueueWindow.items(from: items, startingAt: 999).first == 949)
+        #expect(PlaybackQueueWindow.items(from: items, startingAt: 999).last == 999)
+    }
+
 }

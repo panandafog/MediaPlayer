@@ -10,7 +10,7 @@ import SwiftUI
 
 struct MusicLibraryView: View {
     @ObservedObject var library: MusicLibraryViewModel
-    let currentSong: Song?
+    let currentSongState: CurrentSongState
     let onPlay: (Song, [Song]) -> Void
 
     var body: some View {
@@ -80,7 +80,7 @@ struct MusicLibraryView: View {
                 SongListView(
                     songs: library.filteredSongs,
                     queue: library.sortedSongs,
-                    currentSong: currentSong,
+                    currentSongState: currentSongState,
                     isLoading: library.isLoading,
                     onPlay: onPlay
                 )
@@ -94,7 +94,7 @@ struct MusicLibraryView: View {
                         NavigationLink {
                             ArtistDetailView(
                                 artist: artist,
-                                currentSong: currentSong,
+                                currentSongState: currentSongState,
                                 onPlay: onPlay
                             )
                         } label: {
@@ -115,7 +115,7 @@ struct MusicLibraryView: View {
                         NavigationLink {
                             AlbumDetailView(
                                 album: album,
-                                currentSong: currentSong,
+                                currentSongState: currentSongState,
                                 onPlay: onPlay
                             )
                         } label: {

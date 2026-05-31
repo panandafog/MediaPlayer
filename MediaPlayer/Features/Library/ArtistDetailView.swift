@@ -10,7 +10,7 @@ import SwiftUI
 
 struct ArtistDetailView: View {
     let artist: LibraryArtist
-    let currentSong: Song?
+    let currentSongState: CurrentSongState
     let onPlay: (Song, [Song]) -> Void
 
     @State private var section: ArtistLibrarySection = .songs
@@ -33,7 +33,7 @@ struct ArtistDetailView: View {
                 SongListView(
                     songs: artist.songs,
                     queue: artist.songs,
-                    currentSong: currentSong,
+                    currentSongState: currentSongState,
                     onPlay: onPlay
                 )
             case .albums:
@@ -41,7 +41,7 @@ struct ArtistDetailView: View {
                     NavigationLink {
                         AlbumDetailView(
                             album: album,
-                            currentSong: currentSong,
+                            currentSongState: currentSongState,
                             onPlay: onPlay
                         )
                     } label: {

@@ -10,7 +10,7 @@ import SwiftUI
 
 struct SongRow: View, Equatable {
     let song: Song
-    let isCurrent: Bool
+    let currentSongState: CurrentSongState
     let onPlay: () -> Void
 
     static func == (lhs: SongRow, rhs: SongRow) -> Bool {
@@ -19,7 +19,7 @@ struct SongRow: View, Equatable {
             && lhs.song.artistName == rhs.song.artistName
             && lhs.song.albumTitle == rhs.song.albumTitle
             && lhs.song.duration == rhs.song.duration
-            && lhs.isCurrent == rhs.isCurrent
+            && lhs.currentSongState === rhs.currentSongState
     }
 
     var body: some View {
@@ -29,7 +29,6 @@ struct SongRow: View, Equatable {
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(song.title)
-                        .fontWeight(isCurrent ? .semibold : .regular)
                         .lineLimit(1)
                     Text(song.artistName)
                         .font(.subheadline)
@@ -43,11 +42,10 @@ struct SongRow: View, Equatable {
 
                 Spacer(minLength: 8)
 
-                if isCurrent {
-                    Image(systemName: "speaker.wave.2.fill")
-                        .foregroundStyle(.tint)
-                        .accessibilityLabel("Now playing")
-                }
+                CurrentSongIndicator(
+                    songID: song.id,
+                    currentSongState: currentSongState
+                )
 
                 Text(TrackDurationFormatter.string(from: song.duration))
                     .font(.caption.monospacedDigit())
@@ -56,5 +54,23 @@ struct SongRow: View, Equatable {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+private struct CurrentSongIndicator: View {
+    let songID: MusicItemID
+    @ObservedObject var currentSongState: CurrentSongState
+
+    var body: some View {
+        Image(systemName: "speaker.wave.2.fill")
+            .foregroundStyle(.tint)
+            .opacity(isCurrent ? 1 : 0)
+            .frame(width: 16)
+            .accessibilityLabel("Now playing")
+            .accessibilityHidden(!isCurrent)
+    }
+
+    private var isCurrent: Bool {
+        currentSongState.songID == songID
     }
 }

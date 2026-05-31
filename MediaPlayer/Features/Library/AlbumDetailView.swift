@@ -10,14 +10,14 @@ import SwiftUI
 
 struct AlbumDetailView: View {
     let album: LibraryAlbum
-    let currentSong: Song?
+    let currentSongState: CurrentSongState
     let onPlay: (Song, [Song]) -> Void
 
     var body: some View {
         SongListView(
             songs: album.songs,
             queue: album.songs,
-            currentSong: currentSong,
+            currentSongState: currentSongState,
             onPlay: onPlay
         )
         .navigationTitle(album.title)

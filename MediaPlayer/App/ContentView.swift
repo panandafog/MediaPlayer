@@ -15,14 +15,14 @@ struct ContentView: View {
 #endif
 
     @StateObject private var library = MusicLibraryViewModel()
-    @ObservedObject var player: MusicPlayerViewModel
+    let player: MusicPlayerViewModel
     @State private var isShowingNowPlaying = false
 
     var body: some View {
         NavigationStack {
             MusicLibraryView(
                 library: library,
-                currentSong: player.currentSong,
+                currentSongState: player.currentSongState,
                 onPlay: play
             )
             .navigationTitle("Music")
@@ -45,30 +45,10 @@ struct ContentView: View {
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            if let song = player.currentSong {
-                NowPlayingBar(
-                    song: song,
-                    isPlaying: player.isPlaying,
-                    playbackTime: player.playbackTime,
-                    onPrevious: {
-                        Task {
-                            await player.skipToPreviousSong()
-                        }
-                    },
-                    onTogglePlayback: {
-                        Task {
-                            await player.togglePlayback()
-                        }
-                    },
-                    onNext: {
-                        Task {
-                            await player.skipToNextSong()
-                        }
-                    },
-                    onSeek: player.seek,
-                    onOpenDetails: openNowPlaying
-                )
-            }
+            NowPlayingBarContainer(
+                player: player,
+                onOpenDetails: openNowPlaying
+            )
         }
 #if os(iOS)
         .fullScreenCover(isPresented: $isShowingNowPlaying) {
@@ -90,33 +70,24 @@ struct ContentView: View {
         .alert(
             "Error",
             isPresented: Binding(
-                get: { errorMessage != nil },
+                get: { library.errorMessage != nil },
                 set: { isPresented in
                     if !isPresented {
-                        clearErrors()
+                        library.clearError()
                     }
                 }
             )
         ) {
-            Button("OK", action: clearErrors)
+            Button("OK", action: library.clearError)
         } message: {
-            Text(errorMessage ?? "")
+            Text(library.errorMessage ?? "")
         }
-    }
-
-    private var errorMessage: String? {
-        player.errorMessage ?? library.errorMessage
     }
 
     private func play(_ song: Song, in queue: [Song]) {
         Task {
             await player.play(song, in: queue)
         }
-    }
-
-    private func clearErrors() {
-        player.clearError()
-        library.clearError()
     }
 
     private func openNowPlaying() {

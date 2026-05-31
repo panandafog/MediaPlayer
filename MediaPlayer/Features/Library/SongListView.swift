@@ -11,20 +11,20 @@ import SwiftUI
 struct SongListView: View {
     let songs: [Song]
     let queue: [Song]
-    let currentSong: Song?
+    let currentSongState: CurrentSongState
     let isLoading: Bool
     let onPlay: (Song, [Song]) -> Void
 
     init(
         songs: [Song],
         queue: [Song],
-        currentSong: Song?,
+        currentSongState: CurrentSongState,
         isLoading: Bool = false,
         onPlay: @escaping (Song, [Song]) -> Void
     ) {
         self.songs = songs
         self.queue = queue
-        self.currentSong = currentSong
+        self.currentSongState = currentSongState
         self.isLoading = isLoading
         self.onPlay = onPlay
     }
@@ -34,7 +34,7 @@ struct SongListView: View {
             ForEach(songs) { song in
                 SongRow(
                     song: song,
-                    isCurrent: currentSong?.id == song.id,
+                    currentSongState: currentSongState,
                     onPlay: { onPlay(song, queue) }
                 )
                 .equatable()

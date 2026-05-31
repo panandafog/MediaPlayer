@@ -17,6 +17,7 @@ final class MusicPlayerViewModel: ObservableObject {
     @Published private(set) var errorMessage: String?
 
     let playbackTime = PlaybackTimeState()
+    let currentSongState = CurrentSongState()
 
     private let player = ApplicationMusicPlayer.shared
     private let logger = Logger(
@@ -44,11 +45,13 @@ final class MusicPlayerViewModel: ObservableObject {
 
     func play(_ song: Song, in queue: [Song]) async {
         do {
-            setPlaybackQueue(queue, startingAt: song)
-            player.queue = ApplicationMusicPlayer.Queue(for: queue, startingAt: song)
+            let playbackQueue = makePlaybackQueue(from: queue, startingAt: song)
+            setPlaybackQueue(playbackQueue, startingAt: song)
+            await Task.yield()
+            player.queue = ApplicationMusicPlayer.Queue(for: playbackQueue, startingAt: song)
             subscribeToQueue()
             try await player.play()
-            syncPlayerState()
+            syncPlaybackState()
         } catch {
             await reportPlaybackErrorUnlessPlaying(error, expectedSong: song)
         }
@@ -66,7 +69,7 @@ final class MusicPlayerViewModel: ObservableObject {
     func togglePlayback() async {
         if isPlaying {
             player.pause()
-            syncPlayerState()
+            syncPlaybackState()
             return
         }
 
@@ -76,7 +79,7 @@ final class MusicPlayerViewModel: ObservableObject {
 
         do {
             try await player.play()
-            syncPlayerState()
+            syncPlaybackState()
         } catch {
             guard let currentSong else {
                 report("Could not resume playback.", error: error)
@@ -89,6 +92,7 @@ final class MusicPlayerViewModel: ObservableObject {
 
     func skipToNextSong() async {
         let transition = moveCurrentSong(by: 1)
+        await Task.yield()
 
         do {
             try await player.skipToNextEntry()
@@ -100,6 +104,7 @@ final class MusicPlayerViewModel: ObservableObject {
 
     func skipToPreviousSong() async {
         let transition = moveCurrentSong(by: -1)
+        await Task.yield()
 
         do {
             try await player.skipToPreviousEntry()
@@ -126,7 +131,7 @@ final class MusicPlayerViewModel: ObservableObject {
         stateCancellable = player.state.objectWillChange
             .receive(on: DispatchQueue.main)
             .sink { [weak self] in
-                self?.syncAfterPublishedChange()
+                self?.syncPlaybackStateAfterPublishedChange()
             }
     }
 
@@ -134,7 +139,7 @@ final class MusicPlayerViewModel: ObservableObject {
         queueCancellable = player.queue.objectWillChange
             .receive(on: DispatchQueue.main)
             .sink { [weak self] in
-                self?.syncAfterPublishedChange()
+                self?.syncQueueStateAfterPublishedChange()
             }
     }
 
@@ -142,20 +147,35 @@ final class MusicPlayerViewModel: ObservableObject {
         playbackTimeCancellable = Timer.publish(every: 0.5, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in
-                self?.syncPlayerState()
+                self?.syncPlaybackTime()
             }
     }
 
-    private func syncAfterPublishedChange() {
+    private func syncPlaybackStateAfterPublishedChange() {
         Task { @MainActor [weak self] in
             await Task.yield()
-            self?.syncPlayerState()
+            self?.syncPlaybackState()
+        }
+    }
+
+    private func syncQueueStateAfterPublishedChange() {
+        Task { @MainActor [weak self] in
+            await Task.yield()
+            self?.syncQueueState()
         }
     }
 
     private func syncPlayerState() {
+        syncPlaybackState()
+        syncQueueState()
+    }
+
+    private func syncPlaybackState() {
         updatePlaybackStatus(player.state.playbackStatus)
         syncPlaybackTime()
+    }
+
+    private func syncQueueState() {
         syncCurrentSongFromPlayerQueue()
     }
 
@@ -209,6 +229,7 @@ final class MusicPlayerViewModel: ObservableObject {
         }
 
         currentSong = song
+        currentSongState.update(to: song.id)
     }
 
     private func setPlaybackQueue(_ queue: [Song], startingAt song: Song) {
@@ -220,6 +241,16 @@ final class MusicPlayerViewModel: ObservableObject {
         playbackTime.update(to: 0)
     }
 
+    private func makePlaybackQueue(from queue: [Song], startingAt song: Song) -> [Song] {
+        guard let songIndex = queue.firstIndex(where: { $0.id == song.id }) else {
+            return [song]
+        }
+
+        // Sending a large library to MusicKit delays initial playback. Keep a
+        // generous local window so normal previous and next navigation stays fast.
+        return PlaybackQueueWindow.items(from: queue, startingAt: songIndex)
+    }
+
     private func moveCurrentSong(
         by offset: Int
     ) -> (previousIndex: Int, destinationIndex: Int)? {
@@ -227,6 +258,7 @@ final class MusicPlayerViewModel: ObservableObject {
             return nil
         }
 
+        let previousIndex = currentSongIndex
         let destinationIndex = currentSongIndex + offset
         guard playbackQueue.indices.contains(destinationIndex) else {
             return nil
@@ -234,7 +266,7 @@ final class MusicPlayerViewModel: ObservableObject {
 
         selectPlaybackQueueSong(at: destinationIndex)
 
-        return (currentSongIndex, destinationIndex)
+        return (previousIndex, destinationIndex)
     }
 
     private func rollbackCurrentSongTransition(
