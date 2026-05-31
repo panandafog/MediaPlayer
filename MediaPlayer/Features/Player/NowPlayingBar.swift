@@ -16,6 +16,7 @@ struct NowPlayingBar: View {
     let onTogglePlayback: () -> Void
     let onNext: () -> Void
     let onSeek: (TimeInterval) -> Void
+    let onOpenDetails: () -> Void
 
     var body: some View {
         VStack(spacing: 0) {
@@ -29,20 +30,17 @@ struct NowPlayingBar: View {
                 )
 
                 HStack(spacing: 12) {
-                    SongArtwork(artwork: song.artwork, size: 52)
-
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(song.title)
-                            .font(.headline)
-                            .lineLimit(1)
-                        Text(song.artistName)
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
+                    trackSummary
 
                     Spacer(minLength: 4)
 
+#if os(macOS)
+                    PlayerControlButton(
+                        title: "Open Mini Player",
+                        systemImage: "macwindow",
+                        action: onOpenDetails
+                    )
+#endif
                     PlayerControlButton(
                         title: "Previous track",
                         systemImage: "backward.fill",
@@ -62,6 +60,34 @@ struct NowPlayingBar: View {
             }
             .padding(12)
             .background(.regularMaterial)
+        }
+    }
+
+    @ViewBuilder
+    private var trackSummary: some View {
+#if os(iOS)
+        Button(action: onOpenDetails) {
+            trackSummaryLabel
+        }
+        .buttonStyle(.plain)
+#else
+        trackSummaryLabel
+#endif
+    }
+
+    private var trackSummaryLabel: some View {
+        HStack(spacing: 12) {
+            SongArtwork(artwork: song.artwork, size: 52)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(song.title)
+                    .font(.headline)
+                    .lineLimit(1)
+                Text(song.artistName)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
         }
     }
 }

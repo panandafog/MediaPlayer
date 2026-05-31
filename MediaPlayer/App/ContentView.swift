@@ -10,8 +10,13 @@ import SwiftUI
 
 struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
+#if os(macOS)
+    @Environment(\.openWindow) private var openWindow
+#endif
+
     @StateObject private var library = MusicLibraryViewModel()
-    @StateObject private var player = MusicPlayerViewModel()
+    @ObservedObject var player: MusicPlayerViewModel
+    @State private var isShowingNowPlaying = false
 
     var body: some View {
         NavigationStack {
@@ -52,7 +57,7 @@ struct ContentView: View {
                     },
                     onTogglePlayback: {
                         Task {
-                            await player.togglePlayback(queue: library.sortedSongs)
+                            await player.togglePlayback()
                         }
                     },
                     onNext: {
@@ -60,10 +65,16 @@ struct ContentView: View {
                             await player.skipToNextSong()
                         }
                     },
-                    onSeek: player.seek
+                    onSeek: player.seek,
+                    onOpenDetails: openNowPlaying
                 )
             }
         }
+#if os(iOS)
+        .fullScreenCover(isPresented: $isShowingNowPlaying) {
+            NowPlayingFullScreenView(player: player)
+        }
+#endif
         .task {
             await library.loadIfAuthorized()
         }
@@ -107,8 +118,16 @@ struct ContentView: View {
         player.clearError()
         library.clearError()
     }
+
+    private func openNowPlaying() {
+#if os(macOS)
+        openWindow(id: MiniPlayerWindow.id)
+#else
+        isShowingNowPlaying = true
+#endif
+    }
 }
 
 #Preview {
-    ContentView()
+    ContentView(player: MusicPlayerViewModel())
 }

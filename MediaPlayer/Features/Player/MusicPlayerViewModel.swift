@@ -26,6 +26,10 @@ final class MusicPlayerViewModel: ObservableObject {
     private var stateCancellable: AnyCancellable?
     private var queueCancellable: AnyCancellable?
     private var playbackTimeCancellable: AnyCancellable?
+    private var playbackQueue: [Song] = []
+    private var currentSongIndex: Int?
+    private var lastObservedQueueEntryID: String?
+    private var expectedQueueSongID: MusicItemID?
 
     init() {
         subscribeToPlayerState()
@@ -40,10 +44,9 @@ final class MusicPlayerViewModel: ObservableObject {
 
     func play(_ song: Song, in queue: [Song]) async {
         do {
+            setPlaybackQueue(queue, startingAt: song)
             player.queue = ApplicationMusicPlayer.Queue(for: queue, startingAt: song)
             subscribeToQueue()
-            updateCurrentSong(song)
-            playbackTime.update(to: 0)
             try await player.play()
             syncPlayerState()
         } catch {
@@ -52,14 +55,22 @@ final class MusicPlayerViewModel: ObservableObject {
     }
 
     func togglePlayback(queue: [Song]) async {
+        if currentSong == nil, let firstSong = queue.first {
+            await play(firstSong, in: queue)
+            return
+        }
+
+        await togglePlayback()
+    }
+
+    func togglePlayback() async {
         if isPlaying {
             player.pause()
             syncPlayerState()
             return
         }
 
-        if currentSong == nil, let firstSong = queue.first {
-            await play(firstSong, in: queue)
+        guard currentSong != nil else {
             return
         }
 
@@ -77,19 +88,23 @@ final class MusicPlayerViewModel: ObservableObject {
     }
 
     func skipToNextSong() async {
+        let transition = moveCurrentSong(by: 1)
+
         do {
             try await player.skipToNextEntry()
-            syncPlayerState()
         } catch {
+            rollbackCurrentSongTransition(transition)
             report("Could not skip to the next track.", error: error)
         }
     }
 
     func skipToPreviousSong() async {
+        let transition = moveCurrentSong(by: -1)
+
         do {
             try await player.skipToPreviousEntry()
-            syncPlayerState()
         } catch {
+            rollbackCurrentSongTransition(transition)
             report("Could not skip to the previous track.", error: error)
         }
     }
@@ -127,7 +142,7 @@ final class MusicPlayerViewModel: ObservableObject {
         playbackTimeCancellable = Timer.publish(every: 0.5, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in
-                self?.syncPlaybackTime()
+                self?.syncPlayerState()
             }
     }
 
@@ -140,13 +155,35 @@ final class MusicPlayerViewModel: ObservableObject {
 
     private func syncPlayerState() {
         updatePlaybackStatus(player.state.playbackStatus)
+        syncPlaybackTime()
+        syncCurrentSongFromPlayerQueue()
+    }
 
-        guard case let .song(song) = player.queue.currentEntry?.item else {
+    private func syncCurrentSongFromPlayerQueue() {
+        guard let entry = player.queue.currentEntry,
+              case let .song(song) = entry.item,
+              entry.id != lastObservedQueueEntryID else {
             return
         }
 
-        updateCurrentSong(song)
-        syncPlaybackTime()
+        lastObservedQueueEntryID = entry.id
+
+        if let expectedQueueSongID {
+            if song.id == expectedQueueSongID {
+                self.expectedQueueSongID = nil
+            }
+
+            return
+        }
+
+        guard let songIndex = playbackQueue.firstIndex(where: { $0.id == song.id }) else {
+            updateCurrentSong(song)
+            return
+        }
+
+        currentSongIndex = songIndex
+        updateCurrentSong(playbackQueue[songIndex])
+        playbackTime.update(to: 0)
     }
 
     private func syncPlaybackTime() {
@@ -172,6 +209,55 @@ final class MusicPlayerViewModel: ObservableObject {
         }
 
         currentSong = song
+    }
+
+    private func setPlaybackQueue(_ queue: [Song], startingAt song: Song) {
+        playbackQueue = queue
+        currentSongIndex = queue.firstIndex(where: { $0.id == song.id })
+        lastObservedQueueEntryID = nil
+        expectedQueueSongID = song.id
+        updateCurrentSong(song)
+        playbackTime.update(to: 0)
+    }
+
+    private func moveCurrentSong(
+        by offset: Int
+    ) -> (previousIndex: Int, destinationIndex: Int)? {
+        guard let currentSongIndex else {
+            return nil
+        }
+
+        let destinationIndex = currentSongIndex + offset
+        guard playbackQueue.indices.contains(destinationIndex) else {
+            return nil
+        }
+
+        selectPlaybackQueueSong(at: destinationIndex)
+
+        return (currentSongIndex, destinationIndex)
+    }
+
+    private func rollbackCurrentSongTransition(
+        _ transition: (previousIndex: Int, destinationIndex: Int)?
+    ) {
+        guard let transition,
+              currentSongIndex == transition.destinationIndex else {
+            return
+        }
+
+        selectPlaybackQueueSong(at: transition.previousIndex)
+    }
+
+    private func selectPlaybackQueueSong(at index: Int) {
+        guard playbackQueue.indices.contains(index) else {
+            return
+        }
+
+        let song = playbackQueue[index]
+        currentSongIndex = index
+        expectedQueueSongID = song.id
+        updateCurrentSong(song)
+        playbackTime.update(to: 0)
     }
 
     private func reportPlaybackErrorUnlessPlaying(_ error: Error, expectedSong: Song) async {
