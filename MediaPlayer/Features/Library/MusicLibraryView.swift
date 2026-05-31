@@ -60,13 +60,7 @@ struct MusicLibraryView: View {
                 description: Text("Add music in the Music app, then refresh your library.")
             )
         } else {
-            VStack(spacing: 0) {
-                MusicLibrarySectionPicker(selection: $library.section)
-
-                Divider()
-
-                sectionContent
-            }
+            sectionContent
         }
     }
 

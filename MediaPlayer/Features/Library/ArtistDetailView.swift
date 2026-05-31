@@ -16,18 +16,7 @@ struct ArtistDetailView: View {
     @State private var section: ArtistLibrarySection = .songs
 
     var body: some View {
-        VStack(spacing: 0) {
-            Picker("Artist Section", selection: $section) {
-                ForEach(ArtistLibrarySection.allCases) { section in
-                    Text(section.title)
-                        .tag(section)
-                }
-            }
-            .pickerStyle(.segmented)
-            .padding()
-
-            Divider()
-
+        Group {
             switch section {
             case .songs:
                 SongListView(
@@ -52,5 +41,10 @@ struct ArtistDetailView: View {
             }
         }
         .navigationTitle(artist.name)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                ArtistLibraryMenu(selection: $section)
+            }
+        }
     }
 }

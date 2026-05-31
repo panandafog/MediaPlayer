@@ -24,6 +24,18 @@ enum MusicLibrarySection: String, CaseIterable, Identifiable {
             "Albums"
         }
     }
+
+    var systemImage: String {
+        switch self {
+        case .songs:
+            "music.note.list"
+        case .artists:
+            "music.mic"
+        case .albums:
+            "square.stack"
+        }
+    }
+
 }
 
 enum ArtistLibrarySection: String, CaseIterable, Identifiable {
@@ -40,6 +52,15 @@ enum ArtistLibrarySection: String, CaseIterable, Identifiable {
             "Songs"
         case .albums:
             "Albums"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .songs:
+            "music.note.list"
+        case .albums:
+            "square.stack"
         }
     }
 }

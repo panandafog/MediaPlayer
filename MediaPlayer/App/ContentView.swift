@@ -28,19 +28,15 @@ struct ContentView: View {
             .navigationTitle("Music")
             .searchable(text: $library.searchText, prompt: "Track, album, or artist")
             .toolbar {
-                if library.authorizationStatus == .authorized, library.section == .songs {
-                    MusicLibrarySortMenu(selection: $library.sortOption)
-                }
-
                 if library.authorizationStatus == .authorized {
-                    Button {
-                        Task {
-                            await library.loadSongs()
-                        }
-                    } label: {
-                        Label("Refresh Library", systemImage: "arrow.clockwise")
+                    ToolbarItem(placement: .primaryAction) {
+                        MusicLibraryMenu(
+                            section: $library.section,
+                            sortOption: $library.sortOption,
+                            isRefreshing: library.isLoading,
+                            onRefresh: refreshLibrary
+                        )
                     }
-                    .disabled(library.isLoading)
                 }
             }
         }
@@ -87,6 +83,12 @@ struct ContentView: View {
     private func play(_ song: Song, in queue: [Song]) {
         Task {
             await player.play(song, in: queue)
+        }
+    }
+
+    private func refreshLibrary() {
+        Task {
+            await library.loadSongs()
         }
     }
 
