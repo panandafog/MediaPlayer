@@ -29,9 +29,22 @@
 		0B5EC9B32FCC2F5500A62A4B /* MediaPlayerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MediaPlayerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		0B5EC9C62FCC2F5500A62A4B /* Exceptions for "MediaPlayer" folder in "MediaPlayer" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				"Info-iOS.plist",
+			);
+			target = 0B5EC99B2FCC2F5400A62A4B /* MediaPlayer */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		0B5EC99E2FCC2F5400A62A4B /* MediaPlayer */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				0B5EC9C62FCC2F5500A62A4B /* Exceptions for "MediaPlayer" folder in "MediaPlayer" target */,
+			);
 			path = MediaPlayer;
 			sourceTree = "<group>";
 		};
@@ -398,6 +411,9 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				"INFOPLIST_FILE[sdk=iphoneos*]" = "MediaPlayer/Info-iOS.plist";
+				"INFOPLIST_FILE[sdk=iphonesimulator*]" = "MediaPlayer/Info-iOS.plist";
+				INFOPLIST_KEY_NSAppleMusicUsageDescription = "The app needs access to your Music library to show and play your tracks.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -414,6 +430,7 @@
 				MACOSX_DEPLOYMENT_TARGET = 26.3;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.panandafog.MediaPlayer;
+				PRODUCT_MODULE_NAME = PlayerApp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
@@ -442,6 +459,9 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
+				"INFOPLIST_FILE[sdk=iphoneos*]" = "MediaPlayer/Info-iOS.plist";
+				"INFOPLIST_FILE[sdk=iphonesimulator*]" = "MediaPlayer/Info-iOS.plist";
+				INFOPLIST_KEY_NSAppleMusicUsageDescription = "The app needs access to your Music library to show and play your tracks.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -458,6 +478,7 @@
 				MACOSX_DEPLOYMENT_TARGET = 26.3;
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.panandafog.MediaPlayer;
+				PRODUCT_MODULE_NAME = PlayerApp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				SDKROOT = auto;
