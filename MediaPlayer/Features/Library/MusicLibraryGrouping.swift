@@ -8,7 +8,7 @@
 import Foundation
 import MusicKit
 
-struct LibraryArtist: Identifiable {
+nonisolated struct LibraryArtist: Identifiable, Sendable {
     let name: String
     let songs: [Song]
     let albums: [LibraryAlbum]
@@ -22,8 +22,8 @@ struct LibraryArtist: Identifiable {
     }
 }
 
-struct LibraryAlbum: Identifiable {
-    struct ID: Hashable {
+nonisolated struct LibraryAlbum: Identifiable, Sendable {
+    nonisolated struct ID: Hashable, Sendable {
         let artistName: String
         let title: String
     }
@@ -35,7 +35,7 @@ struct LibraryAlbum: Identifiable {
     let songs: [Song]
 }
 
-enum MusicLibraryGrouping {
+nonisolated enum MusicLibraryGrouping {
     static func groups(from songs: [Song]) -> (artists: [LibraryArtist], albums: [LibraryAlbum]) {
         let albums = albums(from: songs)
         return (artists(from: songs, albums: albums), albums)

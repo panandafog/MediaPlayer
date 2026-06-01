@@ -26,7 +26,11 @@ struct ContentView: View {
                 onPlay: play
             )
             .navigationTitle(library.section.title)
-            .searchable(text: $library.searchText, prompt: "Track, album, artist, or playlist")
+            .searchable(
+                text: $library.searchText,
+                placement: searchFieldPlacement,
+                prompt: "Track, album, artist, or playlist"
+            )
             .toolbar {
                 if library.authorizationStatus == .authorized {
                     ToolbarItem(placement: .primaryAction) {
@@ -97,6 +101,14 @@ struct ContentView: View {
         openWindow(id: MiniPlayerWindow.id)
 #else
         isShowingNowPlaying = true
+#endif
+    }
+
+    private var searchFieldPlacement: SearchFieldPlacement {
+#if os(iOS)
+        .navigationBarDrawer(displayMode: .always)
+#else
+        .automatic
 #endif
     }
 }

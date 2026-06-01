@@ -8,21 +8,17 @@
 import MusicKit
 
 protocol MusicLibraryLoading {
-    @MainActor
-    func fetchSongs() async throws -> [Song]
+    @concurrent func fetchSongs() async throws -> [Song]
 
-    @MainActor
-    func fetchPlaylists() async throws -> [Playlist]
+    @concurrent func fetchPlaylists() async throws -> [Playlist]
 
-    @MainActor
-    func fetchSongs(in playlist: Playlist) async throws -> [Song]
+    @concurrent func fetchSongs(in playlist: Playlist) async throws -> [Song]
 }
 
 struct MusicKitLibraryService: MusicLibraryLoading {
     nonisolated init() {}
 
-    @MainActor
-    func fetchSongs() async throws -> [Song] {
+    @concurrent func fetchSongs() async throws -> [Song] {
         let pageSize = 100
         var offset = 0
         var loadedSongs: [Song] = []
@@ -45,8 +41,7 @@ struct MusicKitLibraryService: MusicLibraryLoading {
         }
     }
 
-    @MainActor
-    func fetchPlaylists() async throws -> [Playlist] {
+    @concurrent func fetchPlaylists() async throws -> [Playlist] {
         let pageSize = 100
         var offset = 0
         var loadedPlaylists: [Playlist] = []
@@ -69,8 +64,7 @@ struct MusicKitLibraryService: MusicLibraryLoading {
         }
     }
 
-    @MainActor
-    func fetchSongs(in playlist: Playlist) async throws -> [Song] {
+    @concurrent func fetchSongs(in playlist: Playlist) async throws -> [Song] {
         let playlist = try await playlist.with(.tracks, preferredSource: .library)
         guard var tracks = playlist.tracks else {
             return []
@@ -85,7 +79,7 @@ struct MusicKitLibraryService: MusicLibraryLoading {
 }
 
 private extension Track {
-    var song: Song? {
+    nonisolated var song: Song? {
         guard case let .song(song) = self else {
             return nil
         }

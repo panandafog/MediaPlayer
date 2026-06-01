@@ -8,7 +8,7 @@
 import Foundation
 import MusicKit
 
-enum MusicLibrarySortOption: String, CaseIterable, Identifiable {
+nonisolated enum MusicLibrarySortOption: String, CaseIterable, Identifiable, Sendable {
     case title
     case album
     case artist
