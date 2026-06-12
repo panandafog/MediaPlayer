@@ -5,6 +5,8 @@
 //  Created by Andrey Pantyuhin on 31.05.2026.
 //
 
+import Foundation
+import MusicKit
 import Testing
 @testable import PlayerApp
 
@@ -47,6 +49,32 @@ struct MediaPlayerTests {
         #expect(PlaybackQueueWindow.itemsAfterCurrent(in: items, currentIndex: 1) == [2, 3, 4])
         #expect(PlaybackQueueWindow.itemsAfterCurrent(in: items, currentIndex: 4).isEmpty)
         #expect(PlaybackQueueWindow.itemsAfterCurrent(in: items, currentIndex: nil).isEmpty)
+    }
+
+    @Test func definesSixEqualizerBandsWithUniqueStorageKeys() {
+        let bands = EqualizerBand.allCases
+
+        #expect(bands.map(\.title) == ["60 Hz", "150 Hz", "400 Hz", "1 kHz", "2.4 kHz", "15 kHz"])
+        #expect(Set(bands.map(\.defaultsKey)).count == bands.count)
+    }
+
+    @Test @MainActor func storesPlaybackRestorationSnapshot() throws {
+        let suiteName = "MediaPlayerTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+
+        let store = PlaybackRestorationStore(defaults: defaults)
+        let snapshot = PlaybackRestorationSnapshot(
+            queueSongIDs: ["first", "second"],
+            currentSongID: "second",
+            playbackTime: 42.5
+        )
+
+        store.save(snapshot)
+
+        #expect(store.load() == snapshot)
     }
 
 }

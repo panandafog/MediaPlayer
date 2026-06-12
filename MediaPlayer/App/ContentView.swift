@@ -17,6 +17,11 @@ struct ContentView: View {
     @StateObject private var library = MusicLibraryViewModel()
     let player: MusicPlayerViewModel
     @State private var isShowingNowPlaying = false
+#if os(iOS)
+    @AppStorage(PlayerSettingsKey.searchBarPosition) private var searchBarPosition =
+        SearchBarPosition.top.rawValue
+    @State private var isShowingSettings = false
+#endif
 
     var body: some View {
         NavigationStack {
@@ -42,6 +47,20 @@ struct ContentView: View {
                         )
                     }
                 }
+
+                ToolbarItem(placement: .secondaryAction) {
+#if os(macOS)
+                    SettingsLink {
+                        Label("Settings", systemImage: "gearshape")
+                    }
+#else
+                    Button {
+                        isShowingSettings = true
+                    } label: {
+                        Label("Settings", systemImage: "gearshape")
+                    }
+#endif
+                }
             }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -49,22 +68,30 @@ struct ContentView: View {
                 player: player,
                 onOpenDetails: openNowPlaying
             )
+#if os(iOS)
+            .padding(.bottom, bottomSearchBarClearance)
+#endif
         }
 #if os(iOS)
         .fullScreenCover(isPresented: $isShowingNowPlaying) {
             NowPlayingFullScreenView(player: player)
         }
+        .sheet(isPresented: $isShowingSettings) {
+            PlayerSettingsView()
+        }
 #endif
         .task {
-            await library.loadIfAuthorized()
+            await loadLibraryAndRestorePlayback()
         }
         .onChange(of: scenePhase) {
-            guard scenePhase == .active else {
-                return
-            }
+            if scenePhase == .active {
+                player.refreshPlaybackState()
 
-            Task {
-                await library.loadIfAuthorized()
+                Task {
+                    await loadLibraryAndRestorePlayback()
+                }
+            } else {
+                player.savePlaybackPosition()
             }
         }
         .alert(
@@ -93,7 +120,13 @@ struct ContentView: View {
     private func refreshLibrary() {
         Task {
             await library.loadLibrary()
+            player.restorePlaybackIfNeeded(from: library.songs)
         }
+    }
+
+    private func loadLibraryAndRestorePlayback() async {
+        await library.loadIfAuthorized()
+        player.restorePlaybackIfNeeded(from: library.songs)
     }
 
     private func openNowPlaying() {
@@ -106,11 +139,23 @@ struct ContentView: View {
 
     private var searchFieldPlacement: SearchFieldPlacement {
 #if os(iOS)
-        .navigationBarDrawer(displayMode: .always)
+        selectedSearchBarPosition == .top
+            ? .navigationBarDrawer(displayMode: .always)
+            : .automatic
 #else
         .automatic
 #endif
     }
+
+#if os(iOS)
+    private var selectedSearchBarPosition: SearchBarPosition {
+        SearchBarPosition(rawValue: searchBarPosition) ?? .top
+    }
+
+    private var bottomSearchBarClearance: CGFloat {
+        selectedSearchBarPosition == .bottom ? 56 : 0
+    }
+#endif
 }
 
 #Preview {

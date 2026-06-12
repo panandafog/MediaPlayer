@@ -6,6 +6,12 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		0B21008F2FDC5E00003D6615 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 0B21008E2FDC5E00003D6615 /* AppIcon.icon */; };
+		0B2100902FDC5E00003D6615 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 0B21008E2FDC5E00003D6615 /* AppIcon.icon */; };
+		0B2100912FDC5E00003D6615 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 0B21008E2FDC5E00003D6615 /* AppIcon.icon */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		0B5EC9AA2FCC2F5500A62A4B /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -24,6 +30,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		0B21008E2FDC5E00003D6615 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		0B5EC99C2FCC2F5400A62A4B /* MediaPlayer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MediaPlayer.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0B5EC9A92FCC2F5500A62A4B /* MediaPlayerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MediaPlayerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		0B5EC9B32FCC2F5500A62A4B /* MediaPlayerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MediaPlayerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -88,6 +95,7 @@
 		0B5EC9932FCC2F5400A62A4B = {
 			isa = PBXGroup;
 			children = (
+				0B21008E2FDC5E00003D6615 /* AppIcon.icon */,
 				0B5EC99E2FCC2F5400A62A4B /* MediaPlayer */,
 				0B5EC9AC2FCC2F5500A62A4B /* MediaPlayerTests */,
 				0B5EC9B62FCC2F5500A62A4B /* MediaPlayerUITests */,
@@ -225,6 +233,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0B21008F2FDC5E00003D6615 /* AppIcon.icon in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -232,6 +241,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0B2100902FDC5E00003D6615 /* AppIcon.icon in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -239,6 +249,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0B2100912FDC5E00003D6615 /* AppIcon.icon in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -38,6 +38,7 @@ final class MusicLibraryViewModel: ObservableObject {
     private var artists: [LibraryArtist] = []
     private var albums: [LibraryAlbum] = []
     private var filteringTask: Task<Void, Never>?
+    private var hasLoadedLibrary = false
     private let logger = Logger(
         subsystem: Bundle.main.bundleIdentifier ?? "PlayerApp",
         category: "MusicLibrary"
@@ -105,6 +106,10 @@ final class MusicLibraryViewModel: ObservableObject {
             return
         }
 
+        guard !hasLoadedLibrary else {
+            return
+        }
+
         await loadLibrary()
     }
 
@@ -139,6 +144,7 @@ final class MusicLibraryViewModel: ObservableObject {
             }.value
 
             apply(content, songs: songs, playlists: playlists)
+            hasLoadedLibrary = true
         } catch {
             report("Could not load your music library.", error: error)
         }

@@ -21,6 +21,7 @@ final class MusicPlayerViewModel: ObservableObject {
     let currentSongState = CurrentSongState()
 
     private let player = ApplicationMusicPlayer.shared
+    private let restorationStore: PlaybackRestorationStore
     private let logger = Logger(
         subsystem: Bundle.main.bundleIdentifier ?? "PlayerApp",
         category: "MusicPlayer"
@@ -28,11 +29,15 @@ final class MusicPlayerViewModel: ObservableObject {
     private var stateCancellable: AnyCancellable?
     private var queueCancellable: AnyCancellable?
     private var playbackTimeCancellable: AnyCancellable?
+    private var playerStateRefreshTask: Task<Void, Never>?
     private var currentSongIndex: Int?
-    private var lastObservedQueueEntryID: String?
-    private var expectedQueueSongID: MusicItemID?
+    private var songIDsByQueueEntryID: [String: MusicItemID] = [:]
+    private var didAttemptPlaybackRestoration = false
+    private var lastPersistedSongID: MusicItemID?
+    private var lastPersistedPlaybackTime: TimeInterval?
 
-    init() {
+    init(restorationStore: PlaybackRestorationStore? = nil) {
+        self.restorationStore = restorationStore ?? PlaybackRestorationStore()
         subscribeToPlayerState()
         subscribeToQueue()
         subscribeToPlaybackTime()
@@ -53,12 +58,9 @@ final class MusicPlayerViewModel: ObservableObject {
     func play(_ song: Song, in queue: [Song]) async {
         do {
             let playbackQueue = makePlaybackQueue(from: queue, startingAt: song)
-            setPlaybackQueue(playbackQueue, startingAt: song)
-            await Task.yield()
-            player.queue = ApplicationMusicPlayer.Queue(for: playbackQueue, startingAt: song)
-            subscribeToQueue()
+            installPlaybackQueue(playbackQueue, startingAt: song)
             try await player.play()
-            syncPlaybackState()
+            schedulePlayerStateRefresh()
         } catch {
             await reportPlaybackErrorUnlessPlaying(error, expectedSong: song)
         }
@@ -77,6 +79,7 @@ final class MusicPlayerViewModel: ObservableObject {
         if isPlaying {
             player.pause()
             syncPlaybackState()
+            savePlaybackPosition()
             return
         }
 
@@ -98,25 +101,19 @@ final class MusicPlayerViewModel: ObservableObject {
     }
 
     func skipToNextSong() async {
-        let transition = moveCurrentSong(by: 1)
-        await Task.yield()
-
         do {
             try await player.skipToNextEntry()
+            schedulePlayerStateRefresh()
         } catch {
-            rollbackCurrentSongTransition(transition)
             report("Could not skip to the next track.", error: error)
         }
     }
 
     func skipToPreviousSong() async {
-        let transition = moveCurrentSong(by: -1)
-        await Task.yield()
-
         do {
             try await player.skipToPreviousEntry()
+            schedulePlayerStateRefresh()
         } catch {
-            rollbackCurrentSongTransition(transition)
             report("Could not skip to the previous track.", error: error)
         }
     }
@@ -128,10 +125,52 @@ final class MusicPlayerViewModel: ObservableObject {
         )
         player.playbackTime = normalizedTime
         playbackTime.update(to: normalizedTime)
+        persistPlaybackSnapshot(force: true)
     }
 
     func playFromCurrentQueue(_ song: Song) async {
         await play(song, in: queueSongs)
+    }
+
+    func refreshPlaybackState() {
+        subscribeToQueue()
+        rebuildQueueEntrySongMapping()
+        schedulePlayerStateRefresh()
+    }
+
+    func savePlaybackPosition() {
+        syncPlayerState()
+        persistPlaybackSnapshot(force: true)
+    }
+
+    func restorePlaybackIfNeeded(from librarySongs: [Song]) {
+        syncPlayerState()
+
+        guard !didAttemptPlaybackRestoration,
+              currentSong == nil,
+              !librarySongs.isEmpty,
+              let snapshot = restorationStore.load() else {
+            return
+        }
+
+        didAttemptPlaybackRestoration = true
+
+        let songsByID = librarySongs.reduce(into: [MusicItemID: Song]()) { songsByID, song in
+            songsByID[song.id] = song
+        }
+        guard let currentSong = songsByID[snapshot.currentSongID] else {
+            restorationStore.clear()
+            return
+        }
+
+        var restoredQueue = snapshot.queueSongIDs.compactMap { songsByID[$0] }
+        if !restoredQueue.contains(where: { $0.id == currentSong.id }) {
+            restoredQueue = [currentSong]
+        }
+
+        installPlaybackQueue(restoredQueue, startingAt: currentSong)
+        seek(to: snapshot.playbackTime)
+        syncPlayerState()
     }
 
     func clearError() {
@@ -142,7 +181,7 @@ final class MusicPlayerViewModel: ObservableObject {
         stateCancellable = player.state.objectWillChange
             .receive(on: DispatchQueue.main)
             .sink { [weak self] in
-                self?.syncPlaybackStateAfterPublishedChange()
+                self?.schedulePlayerStateRefresh()
             }
     }
 
@@ -158,27 +197,38 @@ final class MusicPlayerViewModel: ObservableObject {
         playbackTimeCancellable = Timer.publish(every: 0.5, on: .main, in: .common)
             .autoconnect()
             .sink { [weak self] _ in
-                self?.syncPlaybackTime()
+                self?.syncPlayerState()
             }
     }
 
-    private func syncPlaybackStateAfterPublishedChange() {
-        Task { @MainActor [weak self] in
-            await Task.yield()
-            self?.syncPlaybackState()
-        }
+    private func syncQueueStateAfterPublishedChange() {
+        schedulePlayerStateRefresh()
     }
 
-    private func syncQueueStateAfterPublishedChange() {
-        Task { @MainActor [weak self] in
-            await Task.yield()
-            self?.syncQueueState()
+    private func schedulePlayerStateRefresh() {
+        playerStateRefreshTask?.cancel()
+        playerStateRefreshTask = Task { @MainActor [weak self] in
+            for delay in [UInt64(0), 100_000_000, 300_000_000, 750_000_000] {
+                if delay > 0 {
+                    do {
+                        try await Task.sleep(nanoseconds: delay)
+                    } catch {
+                        return
+                    }
+                }
+
+                guard let self else {
+                    return
+                }
+
+                syncPlayerState()
+            }
         }
     }
 
     private func syncPlayerState() {
-        syncPlaybackState()
         syncQueueState()
+        syncPlaybackState()
     }
 
     private func syncPlaybackState() {
@@ -191,39 +241,65 @@ final class MusicPlayerViewModel: ObservableObject {
     }
 
     private func syncCurrentSongFromPlayerQueue() {
-        guard let entry = player.queue.currentEntry,
-              case let .song(song) = entry.item,
-              entry.id != lastObservedQueueEntryID else {
+        guard let entry = player.queue.currentEntry else {
             return
         }
 
-        lastObservedQueueEntryID = entry.id
+        if songIDsByQueueEntryID[entry.id] == nil {
+            rebuildQueueEntrySongMapping()
+        }
 
-        if let expectedQueueSongID {
-            if song.id == expectedQueueSongID {
-                self.expectedQueueSongID = nil
-            }
-
+        if let songID = songIDsByQueueEntryID[entry.id],
+           let songIndex = queueSongs.firstIndex(where: { $0.id == songID }) {
+            selectCurrentSongFromQueue(at: songIndex)
             return
         }
 
-        guard let songIndex = queueSongs.firstIndex(where: { $0.id == song.id }) else {
-            updateCurrentSong(song)
+        if player.queue.entries.count == queueSongs.count,
+           let entryIndex = player.queue.entries.firstIndex(of: entry),
+           queueSongs.indices.contains(entryIndex) {
+            selectCurrentSongFromQueue(at: entryIndex)
             return
         }
 
-        currentSongIndex = songIndex
-        updateCurrentSong(queueSongs[songIndex])
-        playbackTime.update(to: 0)
+        guard case let .song(song) = entry.item else {
+            return
+        }
+
+        if let songIndex = queueSongs.firstIndex(where: { $0.id == song.id }) {
+            selectCurrentSongFromQueue(at: songIndex)
+            return
+        }
+
+        let didCurrentSongChange = currentSong?.id != song.id
+        currentSongIndex = nil
+        updateCurrentSong(song)
+        if didCurrentSongChange {
+            playbackTime.update(to: 0)
+        }
+    }
+
+    private func selectCurrentSongFromQueue(at index: Int) {
+        guard queueSongs.indices.contains(index) else {
+            return
+        }
+
+        let song = queueSongs[index]
+        let didCurrentSongChange = currentSong?.id != song.id
+        currentSongIndex = index
+        updateCurrentSong(song)
+        if didCurrentSongChange {
+            playbackTime.update(to: 0)
+        }
     }
 
     private func syncPlaybackTime() {
-        playbackTime.update(
-            to: PlaybackProgress.normalizedTime(
-                player.playbackTime,
-                duration: currentSong?.duration
-            )
+        let normalizedTime = PlaybackProgress.normalizedTime(
+            player.playbackTime,
+            duration: currentSong?.duration
         )
+        playbackTime.update(to: normalizedTime)
+        persistPlaybackSnapshot()
     }
 
     private func updatePlaybackStatus(_ playbackStatus: MusicPlayer.PlaybackStatus) {
@@ -246,10 +322,28 @@ final class MusicPlayerViewModel: ObservableObject {
     private func setPlaybackQueue(_ queue: [Song], startingAt song: Song) {
         queueSongs = queue
         currentSongIndex = queue.firstIndex(where: { $0.id == song.id })
-        lastObservedQueueEntryID = nil
-        expectedQueueSongID = song.id
         updateCurrentSong(song)
         playbackTime.update(to: 0)
+        persistPlaybackSnapshot(force: true)
+    }
+
+    private func installPlaybackQueue(_ songs: [Song], startingAt song: Song) {
+        let playbackQueue = ApplicationMusicPlayer.Queue(for: songs, startingAt: song)
+        player.queue = playbackQueue
+        setPlaybackQueue(songs, startingAt: song)
+        rebuildQueueEntrySongMapping()
+        subscribeToQueue()
+    }
+
+    private func rebuildQueueEntrySongMapping() {
+        guard player.queue.entries.count == queueSongs.count else {
+            return
+        }
+
+        songIDsByQueueEntryID = zip(player.queue.entries, queueSongs).reduce(into: [:]) {
+            entryIDs, pair in
+            entryIDs[pair.0.id] = pair.1.id
+        }
     }
 
     private func makePlaybackQueue(from queue: [Song], startingAt song: Song) -> [Song] {
@@ -262,45 +356,39 @@ final class MusicPlayerViewModel: ObservableObject {
         return PlaybackQueueWindow.items(from: queue, startingAt: songIndex)
     }
 
-    private func moveCurrentSong(
-        by offset: Int
-    ) -> (previousIndex: Int, destinationIndex: Int)? {
-        guard let currentSongIndex else {
-            return nil
-        }
-
-        let previousIndex = currentSongIndex
-        let destinationIndex = currentSongIndex + offset
-        guard queueSongs.indices.contains(destinationIndex) else {
-            return nil
-        }
-
-        selectPlaybackQueueSong(at: destinationIndex)
-
-        return (previousIndex, destinationIndex)
-    }
-
-    private func rollbackCurrentSongTransition(
-        _ transition: (previousIndex: Int, destinationIndex: Int)?
-    ) {
-        guard let transition,
-              currentSongIndex == transition.destinationIndex else {
+    private func persistPlaybackSnapshot(force: Bool = false) {
+        guard let currentSong else {
             return
         }
 
-        selectPlaybackQueueSong(at: transition.previousIndex)
-    }
+        let normalizedTime = PlaybackProgress.normalizedTime(
+            playbackTime.value,
+            duration: currentSong.duration
+        )
+        let hasMeaningfulProgressChange = lastPersistedPlaybackTime.map {
+            abs($0 - normalizedTime) >= 2
+        } ?? true
 
-    private func selectPlaybackQueueSong(at index: Int) {
-        guard queueSongs.indices.contains(index) else {
+        guard force
+                || lastPersistedSongID != currentSong.id
+                || hasMeaningfulProgressChange else {
             return
         }
 
-        let song = queueSongs[index]
-        currentSongIndex = index
-        expectedQueueSongID = song.id
-        updateCurrentSong(song)
-        playbackTime.update(to: 0)
+        var queueSongIDs = queueSongs.map(\.id)
+        if !queueSongIDs.contains(currentSong.id) {
+            queueSongIDs = [currentSong.id]
+        }
+
+        restorationStore.save(
+            PlaybackRestorationSnapshot(
+                queueSongIDs: queueSongIDs,
+                currentSongID: currentSong.id,
+                playbackTime: normalizedTime
+            )
+        )
+        lastPersistedSongID = currentSong.id
+        lastPersistedPlaybackTime = normalizedTime
     }
 
     private func reportPlaybackErrorUnlessPlaying(_ error: Error, expectedSong: Song) async {

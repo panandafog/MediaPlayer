@@ -22,6 +22,10 @@ struct MediaPlayerApp: App {
         }
         .defaultSize(width: 380, height: 560)
         .windowResizability(.contentSize)
+
+        Settings {
+            PlayerSettingsView()
+        }
 #endif
     }
 }
