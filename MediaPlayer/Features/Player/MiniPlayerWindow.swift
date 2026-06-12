@@ -12,25 +12,19 @@ import SwiftUI
 struct MiniPlayerWindow: View {
     static let id = "mini-player"
 
+    @Environment(\.openWindow) private var openWindow
+
     @ObservedObject var player: MusicPlayerViewModel
     @ObservedObject var library: MusicLibraryViewModel
-    @State private var navigationPath: [LibraryNavigationDestination] = []
+    @ObservedObject var mainWindowNavigation: MainWindowNavigation
 
     var body: some View {
-        NavigationStack(path: $navigationPath) {
+        NavigationStack {
             NowPlayingView(
                 player: player,
                 onOpenArtist: openArtist,
                 onOpenAlbum: openAlbum
             )
-            .navigationDestination(for: LibraryNavigationDestination.self) { destination in
-                LibraryNavigationDestinationView(
-                    destination: destination,
-                    library: library,
-                    currentSongState: player.currentSongState,
-                    onPlay: play
-                )
-            }
         }
             .task {
                 await library.loadIfAuthorized()
@@ -43,12 +37,6 @@ struct MiniPlayerWindow: View {
                 idealHeight: 560,
                 maxHeight: 680
             )
-    }
-
-    private func play(_ song: Song, in queue: [Song]) {
-        Task {
-            await player.play(song, in: queue)
-        }
     }
 
     private func openArtist(for song: Song) {
@@ -68,11 +56,8 @@ struct MiniPlayerWindow: View {
     }
 
     private func open(_ destination: LibraryNavigationDestination) {
-        guard navigationPath.last != destination else {
-            return
-        }
-
-        navigationPath.append(destination)
+        mainWindowNavigation.open(destination)
+        openWindow(id: MainWindowNavigation.windowID)
     }
 }
 #endif

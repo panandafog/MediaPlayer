@@ -5,6 +5,7 @@
 //  Created by Codex on 12.06.2026.
 //
 
+import Combine
 import MusicKit
 import SwiftUI
 
@@ -12,6 +13,32 @@ enum LibraryNavigationDestination: Hashable {
     case artist(LibraryArtist.ID)
     case album(LibraryAlbum.ID)
 }
+
+#if os(macOS)
+@MainActor
+final class MainWindowNavigation: ObservableObject {
+    struct Request: Equatable {
+        let id = UUID()
+        let destination: LibraryNavigationDestination
+    }
+
+    static let windowID = "main-library"
+
+    @Published private(set) var request: Request?
+
+    func open(_ destination: LibraryNavigationDestination) {
+        request = Request(destination: destination)
+    }
+
+    func consume(_ requestID: UUID) {
+        guard request?.id == requestID else {
+            return
+        }
+
+        request = nil
+    }
+}
+#endif
 
 struct LibraryNavigationDestinationView: View {
     let destination: LibraryNavigationDestination

@@ -11,21 +11,36 @@ import SwiftUI
 struct MediaPlayerApp: App {
     @StateObject private var player = MusicPlayerViewModel()
     @StateObject private var library = MusicLibraryViewModel()
+#if os(macOS)
+    @StateObject private var mainWindowNavigation = MainWindowNavigation()
+#endif
 
     var body: some Scene {
-        WindowGroup {
-            ContentView(player: player, library: library)
+#if os(macOS)
+        Window("Media Player", id: MainWindowNavigation.windowID) {
+            ContentView(
+                player: player,
+                library: library,
+                mainWindowNavigation: mainWindowNavigation
+            )
         }
 
-#if os(macOS)
         Window("Mini Player", id: MiniPlayerWindow.id) {
-            MiniPlayerWindow(player: player, library: library)
+            MiniPlayerWindow(
+                player: player,
+                library: library,
+                mainWindowNavigation: mainWindowNavigation
+            )
         }
         .defaultSize(width: 380, height: 560)
         .windowResizability(.contentSize)
 
         Settings {
             PlayerSettingsView()
+        }
+#else
+        WindowGroup {
+            ContentView(player: player, library: library)
         }
 #endif
     }
