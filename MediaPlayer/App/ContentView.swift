@@ -20,10 +20,12 @@ struct ContentView: View {
     @ObservedObject var mainWindowNavigation: MainWindowNavigation
 #endif
     @State private var navigationPath: [LibraryNavigationDestination] = []
+    @State private var bottomAccessoryHeight: CGFloat = 0
     @State private var isShowingNowPlaying = false
 #if os(iOS)
     @AppStorage(PlayerSettingsKey.searchBarPosition) private var searchBarPosition =
         SearchBarPosition.top.rawValue
+    @FocusState private var isBottomSearchFocused: Bool
     @State private var isShowingSettings = false
     @State private var pendingNowPlayingDestination: LibraryNavigationDestination?
 #endif
@@ -36,11 +38,6 @@ struct ContentView: View {
                 onPlay: play
             )
             .navigationTitle(library.section.title)
-            .searchable(
-                text: $library.searchText,
-                placement: searchFieldPlacement,
-                prompt: "Track, album, artist, or playlist"
-            )
             .toolbar {
                 if library.authorizationStatus == .authorized {
                     ToolbarItem(placement: .primaryAction) {
@@ -76,16 +73,19 @@ struct ContentView: View {
                 )
             }
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            NowPlayingBarContainer(
-                player: player,
-                onOpenDetails: openNowPlaying,
-                onOpenArtist: openArtist,
-                onOpenAlbum: openAlbum
-            )
-#if os(iOS)
-            .padding(.bottom, bottomSearchBarClearance)
-#endif
+        .contentMargins(.bottom, bottomAccessoryHeight, for: .scrollContent)
+        .contentMargins(.bottom, bottomAccessoryHeight, for: .scrollIndicators)
+        .playerSearchable(
+            text: $library.searchText,
+            usesTopSearch: usesTopSearch
+        )
+        .overlay(alignment: .bottom) {
+            bottomAccessory
+                .onGeometryChange(for: CGFloat.self) { geometry in
+                    geometry.size.height
+                } action: { height in
+                    bottomAccessoryHeight = height
+                }
         }
 #if os(iOS)
         .sheet(
@@ -210,13 +210,30 @@ struct ContentView: View {
     }
 #endif
 
-    private var searchFieldPlacement: SearchFieldPlacement {
+    private var usesTopSearch: Bool {
 #if os(iOS)
         selectedSearchBarPosition == .top
-            ? .navigationBarDrawer(displayMode: .always)
-            : .automatic
 #else
-        .automatic
+        true
+#endif
+    }
+
+    private var bottomAccessory: some View {
+        VStack(spacing: 0) {
+            NowPlayingBarContainer(
+                player: player,
+                onOpenDetails: openNowPlaying,
+                onOpenArtist: openArtist,
+                onOpenAlbum: openAlbum
+            )
+#if os(iOS)
+            if selectedSearchBarPosition == .bottom {
+                bottomSearchBar
+            }
+#endif
+        }
+#if os(iOS)
+        .safeAreaPadding(.bottom)
 #endif
     }
 
@@ -225,8 +242,43 @@ struct ContentView: View {
         SearchBarPosition(rawValue: searchBarPosition) ?? .top
     }
 
-    private var bottomSearchBarClearance: CGFloat {
-        selectedSearchBarPosition == .bottom ? 56 : 0
+    private var bottomSearchBar: some View {
+        HStack(spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(.secondary)
+
+                TextField(
+                    "Track, album, artist, or playlist",
+                    text: $library.searchText
+                )
+                .focused($isBottomSearchFocused)
+                .submitLabel(.search)
+
+                if !library.searchText.isEmpty {
+                    Button {
+                        library.searchText = ""
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Clear Search")
+                }
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 44)
+            .glassEffect(.regular, in: Capsule())
+
+            if isBottomSearchFocused {
+                Button("Cancel") {
+                    library.searchText = ""
+                    isBottomSearchFocused = false
+                }
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.bottom, 8)
     }
 
     private func openArtistFromNowPlaying(_ song: Song) {
@@ -259,6 +311,32 @@ struct ContentView: View {
         open(destination)
     }
 #endif
+}
+
+private extension View {
+    @ViewBuilder
+    func playerSearchable(
+        text: Binding<String>,
+        usesTopSearch: Bool
+    ) -> some View {
+#if os(iOS)
+        if usesTopSearch {
+            searchable(
+                text: text,
+                placement: .navigationBarDrawer(displayMode: .always),
+                prompt: "Track, album, artist, or playlist"
+            )
+        } else {
+            self
+        }
+#else
+        searchable(
+            text: text,
+            placement: .automatic,
+            prompt: "Track, album, artist, or playlist"
+        )
+#endif
+    }
 }
 
 #Preview {
