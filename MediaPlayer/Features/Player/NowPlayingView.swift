@@ -10,7 +10,19 @@ import SwiftUI
 
 struct NowPlayingView: View {
     @ObservedObject var player: MusicPlayerViewModel
+    let onOpenArtist: ((Song) -> Void)?
+    let onOpenAlbum: ((Song) -> Void)?
     @State private var isShowingQueue = false
+
+    init(
+        player: MusicPlayerViewModel,
+        onOpenArtist: ((Song) -> Void)? = nil,
+        onOpenAlbum: ((Song) -> Void)? = nil
+    ) {
+        self.player = player
+        self.onOpenArtist = onOpenArtist
+        self.onOpenAlbum = onOpenAlbum
+    }
 
     var body: some View {
         Group {
@@ -37,7 +49,9 @@ struct NowPlayingView: View {
                     onSeek: player.seek,
                     onShowQueue: {
                         isShowingQueue = true
-                    }
+                    },
+                    onOpenArtist: onOpenArtist,
+                    onOpenAlbum: onOpenAlbum
                 )
             } else {
                 ContentUnavailableView(
@@ -62,6 +76,8 @@ private struct NowPlayingContent: View {
     let onNext: () -> Void
     let onSeek: (TimeInterval) -> Void
     let onShowQueue: () -> Void
+    let onOpenArtist: ((Song) -> Void)?
+    let onOpenAlbum: ((Song) -> Void)?
 
     var body: some View {
         GeometryReader { geometry in
@@ -79,14 +95,22 @@ private struct NowPlayingContent: View {
                         .font(.title2.weight(.semibold))
                         .lineLimit(2)
                         .multilineTextAlignment(.center)
-                    Text(song.artistName)
-                        .font(.headline)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                    Text(song.albumTitle ?? "Unknown Album")
-                        .font(.subheadline)
-                        .foregroundStyle(.tertiary)
-                        .lineLimit(1)
+                    PlayerMetadataLink(
+                        title: song.artistName,
+                        font: .headline,
+                        foregroundStyle: .secondary,
+                        action: onOpenArtist.map { action in
+                            { action(song) }
+                        }
+                    )
+                    PlayerMetadataLink(
+                        title: song.albumTitle ?? "Unknown Album",
+                        font: .subheadline,
+                        foregroundStyle: .tertiary,
+                        action: onOpenAlbum.map { action in
+                            { action(song) }
+                        }
+                    )
                 }
 
                 PlaybackProgressSlider(
@@ -122,6 +146,33 @@ private struct NowPlayingContent: View {
             .padding(metrics.outerPadding)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
+    }
+}
+
+private struct PlayerMetadataLink<S: ShapeStyle>: View {
+    let title: String
+    let font: Font
+    let foregroundStyle: S
+    let action: (() -> Void)?
+
+    @ViewBuilder
+    var body: some View {
+        if let action {
+            Button(action: action) {
+                label
+            }
+            .buttonStyle(.plain)
+        } else {
+            label
+        }
+    }
+
+    private var label: some View {
+        Text(title)
+            .font(font)
+            .foregroundStyle(foregroundStyle)
+            .lineLimit(1)
+            .contentShape(Rectangle())
     }
 }
 

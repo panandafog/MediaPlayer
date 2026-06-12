@@ -10,15 +10,16 @@ import SwiftUI
 @main
 struct MediaPlayerApp: App {
     @StateObject private var player = MusicPlayerViewModel()
+    @StateObject private var library = MusicLibraryViewModel()
 
     var body: some Scene {
         WindowGroup {
-            ContentView(player: player)
+            ContentView(player: player, library: library)
         }
 
 #if os(macOS)
         Window("Mini Player", id: MiniPlayerWindow.id) {
-            MiniPlayerWindow(player: player)
+            MiniPlayerWindow(player: player, library: library)
         }
         .defaultSize(width: 380, height: 560)
         .windowResizability(.contentSize)

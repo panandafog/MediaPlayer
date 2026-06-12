@@ -18,6 +18,8 @@ struct NowPlayingBar: View {
     let onSeek: (TimeInterval) -> Void
     let onShowQueue: () -> Void
     let onOpenDetails: () -> Void
+    let onOpenArtist: (Song) -> Void
+    let onOpenAlbum: (Song) -> Void
 
     var body: some View {
         VStack(spacing: 8) {
@@ -90,10 +92,32 @@ struct NowPlayingBar: View {
                 Text(song.title)
                     .font(.headline)
                     .lineLimit(1)
+#if os(macOS)
+                Button {
+                    onOpenArtist(song)
+                } label: {
+                    Text(song.artistName)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    onOpenAlbum(song)
+                } label: {
+                    Text(song.albumTitle ?? "Unknown Album")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                }
+                .buttonStyle(.plain)
+#else
                 Text(song.artistName)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+#endif
             }
         }
     }

@@ -14,8 +14,9 @@ struct ContentView: View {
     @Environment(\.openWindow) private var openWindow
 #endif
 
-    @StateObject private var library = MusicLibraryViewModel()
     let player: MusicPlayerViewModel
+    @ObservedObject var library: MusicLibraryViewModel
+    @State private var navigationPath: [LibraryNavigationDestination] = []
     @State private var isShowingNowPlaying = false
 #if os(iOS)
     @AppStorage(PlayerSettingsKey.searchBarPosition) private var searchBarPosition =
@@ -24,7 +25,7 @@ struct ContentView: View {
 #endif
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $navigationPath) {
             MusicLibraryView(
                 library: library,
                 currentSongState: player.currentSongState,
@@ -62,11 +63,21 @@ struct ContentView: View {
 #endif
                 }
             }
+            .navigationDestination(for: LibraryNavigationDestination.self) { destination in
+                LibraryNavigationDestinationView(
+                    destination: destination,
+                    library: library,
+                    currentSongState: player.currentSongState,
+                    onPlay: play
+                )
+            }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             NowPlayingBarContainer(
                 player: player,
-                onOpenDetails: openNowPlaying
+                onOpenDetails: openNowPlaying,
+                onOpenArtist: openArtist,
+                onOpenAlbum: openAlbum
             )
 #if os(iOS)
             .padding(.bottom, bottomSearchBarClearance)
@@ -74,7 +85,7 @@ struct ContentView: View {
         }
 #if os(iOS)
         .fullScreenCover(isPresented: $isShowingNowPlaying) {
-            NowPlayingFullScreenView(player: player)
+            NowPlayingFullScreenView(player: player, library: library)
         }
         .sheet(isPresented: $isShowingSettings) {
             PlayerSettingsView()
@@ -137,6 +148,36 @@ struct ContentView: View {
 #endif
     }
 
+    private func openArtist(for song: Song) {
+#if os(macOS)
+        guard let artist = library.artist(containing: song) else {
+            return
+        }
+
+        open(.artist(artist.id))
+#endif
+    }
+
+    private func openAlbum(for song: Song) {
+#if os(macOS)
+        guard let album = library.album(containing: song) else {
+            return
+        }
+
+        open(.album(album.id))
+#endif
+    }
+
+#if os(macOS)
+    private func open(_ destination: LibraryNavigationDestination) {
+        guard navigationPath.last != destination else {
+            return
+        }
+
+        navigationPath.append(destination)
+    }
+#endif
+
     private var searchFieldPlacement: SearchFieldPlacement {
 #if os(iOS)
         selectedSearchBarPosition == .top
@@ -159,5 +200,5 @@ struct ContentView: View {
 }
 
 #Preview {
-    ContentView(player: MusicPlayerViewModel())
+    ContentView(player: MusicPlayerViewModel(), library: MusicLibraryViewModel())
 }

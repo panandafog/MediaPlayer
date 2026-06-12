@@ -85,13 +85,7 @@ struct MusicLibraryView: View {
             } else {
                 List {
                     ForEach(library.filteredArtists) { artist in
-                        NavigationLink {
-                            ArtistDetailView(
-                                artist: artist,
-                                currentSongState: currentSongState,
-                                onPlay: onPlay
-                            )
-                        } label: {
+                        NavigationLink(value: LibraryNavigationDestination.artist(artist.id)) {
                             ArtistRow(artist: artist)
                         }
                     }
@@ -106,13 +100,7 @@ struct MusicLibraryView: View {
             } else {
                 List {
                     ForEach(library.filteredAlbums) { album in
-                        NavigationLink {
-                            AlbumDetailView(
-                                album: album,
-                                currentSongState: currentSongState,
-                                onPlay: onPlay
-                            )
-                        } label: {
+                        NavigationLink(value: LibraryNavigationDestination.album(album.id)) {
                             AlbumRow(album: album)
                         }
                     }

@@ -56,6 +56,26 @@ final class MusicLibraryViewModel: ObservableObject {
         songs.isEmpty && playlists.isEmpty
     }
 
+    func artist(containing song: Song) -> LibraryArtist? {
+        artists.first { artist in
+            artist.songs.contains(where: { $0.id == song.id })
+        }
+    }
+
+    func album(containing song: Song) -> LibraryAlbum? {
+        albums.first { album in
+            album.songs.contains(where: { $0.id == song.id })
+        }
+    }
+
+    func artist(id: LibraryArtist.ID) -> LibraryArtist? {
+        artists.first(where: { $0.id == id })
+    }
+
+    func album(id: LibraryAlbum.ID) -> LibraryAlbum? {
+        albums.first(where: { $0.id == id })
+    }
+
     private func refreshFilteredContent(debounce: Bool = false) {
         filteringTask?.cancel()
 

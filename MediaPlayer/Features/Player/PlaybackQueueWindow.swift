@@ -6,8 +6,8 @@
 //
 
 enum PlaybackQueueWindow {
-    static let precedingItemLimit = 50
-    static let followingItemLimit = 200
+    static let precedingItemLimit = 10
+    static let followingItemLimit = 50
 
     static func items<Element>(
         from items: [Element],

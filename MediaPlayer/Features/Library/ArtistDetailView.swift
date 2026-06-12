@@ -27,13 +27,7 @@ struct ArtistDetailView: View {
                 )
             case .albums:
                 List(artist.albums) { album in
-                    NavigationLink {
-                        AlbumDetailView(
-                            album: album,
-                            currentSongState: currentSongState,
-                            onPlay: onPlay
-                        )
-                    } label: {
+                    NavigationLink(value: LibraryNavigationDestination.album(album.id)) {
                         AlbumRow(album: album)
                     }
                 }

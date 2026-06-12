@@ -5,11 +5,14 @@
 //  Created by Codex on 31.05.2026.
 //
 
+import MusicKit
 import SwiftUI
 
 struct NowPlayingBarContainer: View {
     @ObservedObject var player: MusicPlayerViewModel
     let onOpenDetails: () -> Void
+    let onOpenArtist: (Song) -> Void
+    let onOpenAlbum: (Song) -> Void
     @State private var isShowingQueue = false
 
     var body: some View {
@@ -38,7 +41,9 @@ struct NowPlayingBarContainer: View {
                     onShowQueue: {
                         isShowingQueue = true
                     },
-                    onOpenDetails: onOpenDetails
+                    onOpenDetails: onOpenDetails,
+                    onOpenArtist: onOpenArtist,
+                    onOpenAlbum: onOpenAlbum
                 )
             }
         }

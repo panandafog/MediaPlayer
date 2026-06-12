@@ -30,6 +30,8 @@ final class MusicPlayerViewModel: ObservableObject {
     private var queueCancellable: AnyCancellable?
     private var playbackTimeCancellable: AnyCancellable?
     private var playerStateRefreshTask: Task<Void, Never>?
+    private var queueExtensionTask: Task<Void, Never>?
+    private var playbackRequestID = UUID()
     private var currentSongIndex: Int?
     private var songIDsByQueueEntryID: [String: MusicItemID] = [:]
     private var didAttemptPlaybackRestoration = false
@@ -56,13 +58,27 @@ final class MusicPlayerViewModel: ObservableObject {
     }
 
     func play(_ song: Song, in queue: [Song]) async {
+        let requestID = beginPlaybackRequest()
+        let playbackQueue = makePlaybackQueue(from: queue, startingAt: song)
+
         do {
-            let playbackQueue = makePlaybackQueue(from: queue, startingAt: song)
-            installPlaybackQueue(playbackQueue, startingAt: song)
-            try await player.play()
+            try await startPlayback(
+                song,
+                in: playbackQueue,
+                requestID: requestID
+            )
             schedulePlayerStateRefresh()
         } catch {
-            await reportPlaybackErrorUnlessPlaying(error, expectedSong: song)
+            guard isCurrentPlaybackRequest(requestID) else {
+                return
+            }
+
+            await recoverPlayback(
+                song,
+                in: playbackQueue,
+                requestID: requestID,
+                originalError: error
+            )
         }
     }
 
@@ -77,6 +93,7 @@ final class MusicPlayerViewModel: ObservableObject {
 
     func togglePlayback() async {
         if isPlaying {
+            playbackRequestID = UUID()
             player.pause()
             syncPlaybackState()
             savePlaybackPosition()
@@ -87,16 +104,28 @@ final class MusicPlayerViewModel: ObservableObject {
             return
         }
 
+        let requestID = beginPlaybackRequest()
+
         do {
             try await player.play()
             syncPlaybackState()
         } catch {
+            guard isCurrentPlaybackRequest(requestID) else {
+                return
+            }
+
             guard let currentSong else {
                 report("Could not resume playback.", error: error)
                 return
             }
 
-            await reportPlaybackErrorUnlessPlaying(error, expectedSong: currentSong)
+            await recoverPlayback(
+                currentSong,
+                in: queueSongs.isEmpty ? [currentSong] : queueSongs,
+                requestID: requestID,
+                originalError: error,
+                playbackTime: playbackTime.value
+            )
         }
     }
 
@@ -331,8 +360,148 @@ final class MusicPlayerViewModel: ObservableObject {
         let playbackQueue = ApplicationMusicPlayer.Queue(for: songs, startingAt: song)
         player.queue = playbackQueue
         setPlaybackQueue(songs, startingAt: song)
+        songIDsByQueueEntryID = [:]
         rebuildQueueEntrySongMapping()
         subscribeToQueue()
+    }
+
+    private func beginPlaybackRequest() -> UUID {
+        queueExtensionTask?.cancel()
+        let requestID = UUID()
+        playbackRequestID = requestID
+        errorMessage = nil
+        return requestID
+    }
+
+    private func isCurrentPlaybackRequest(_ requestID: UUID) -> Bool {
+        playbackRequestID == requestID
+    }
+
+    private func startPlayback(
+        _ song: Song,
+        in queue: [Song],
+        requestID: UUID,
+        playbackTime: TimeInterval? = nil
+    ) async throws {
+        player.stop()
+        try await Task.sleep(nanoseconds: 100_000_000)
+
+        try ensureCurrentPlaybackRequest(requestID)
+        let followingSongs = installStartupPlaybackQueue(queue, startingAt: song)
+        await Task.yield()
+
+        try ensureCurrentPlaybackRequest(requestID)
+        if let playbackTime {
+            player.playbackTime = playbackTime
+            self.playbackTime.update(to: playbackTime)
+        }
+        try await player.play()
+        scheduleQueueExtension(followingSongs, requestID: requestID)
+    }
+
+    private func installStartupPlaybackQueue(
+        _ songs: [Song],
+        startingAt song: Song
+    ) -> [Song] {
+        guard let songIndex = songs.firstIndex(where: { $0.id == song.id }) else {
+            installPlaybackQueue([song], startingAt: song)
+            return []
+        }
+
+        let startupSongs = Array(songs[...songIndex])
+        let followingSongs = Array(songs.dropFirst(songIndex + 1))
+        let playbackQueue = ApplicationMusicPlayer.Queue(for: startupSongs, startingAt: song)
+        player.queue = playbackQueue
+        setPlaybackQueue(songs, startingAt: song)
+        songIDsByQueueEntryID = [:]
+        subscribeToQueue()
+        return followingSongs
+    }
+
+    private func scheduleQueueExtension(_ songs: [Song], requestID: UUID) {
+        guard !songs.isEmpty else {
+            rebuildQueueEntrySongMapping()
+            return
+        }
+
+        queueExtensionTask?.cancel()
+        queueExtensionTask = Task { @MainActor [weak self] in
+            do {
+                try await Task.sleep(nanoseconds: 300_000_000)
+                guard let self, isCurrentPlaybackRequest(requestID) else {
+                    return
+                }
+
+                try await player.queue.insert(songs, position: .tail)
+                guard isCurrentPlaybackRequest(requestID) else {
+                    return
+                }
+
+                rebuildQueueEntrySongMapping()
+                subscribeToQueue()
+            } catch is CancellationError {
+                return
+            } catch {
+                self?.logger.warning(
+                    "Could not extend the playback queue after starting. \(error.localizedDescription, privacy: .public)"
+                )
+            }
+        }
+    }
+
+    private func recoverPlayback(
+        _ song: Song,
+        in queue: [Song],
+        requestID: UUID,
+        originalError: Error,
+        playbackTime: TimeInterval? = nil
+    ) async {
+        guard isRecoverablePlaybackError(originalError) else {
+            await reportPlaybackErrorUnlessPlaying(
+                originalError,
+                expectedSong: song,
+                requestID: requestID
+            )
+            return
+        }
+
+        logger.warning(
+            "Playback start failed; reconnecting the application player. \(originalError.localizedDescription, privacy: .public)"
+        )
+
+        syncPlaybackState()
+
+        do {
+            try await startPlayback(
+                song,
+                in: queue,
+                requestID: requestID,
+                playbackTime: playbackTime
+            )
+            schedulePlayerStateRefresh()
+        } catch {
+            guard isCurrentPlaybackRequest(requestID) else {
+                return
+            }
+
+            await reportPlaybackErrorUnlessPlaying(
+                error,
+                expectedSong: song,
+                requestID: requestID
+            )
+        }
+    }
+
+    private func ensureCurrentPlaybackRequest(_ requestID: UUID) throws {
+        guard isCurrentPlaybackRequest(requestID) else {
+            throw CancellationError()
+        }
+    }
+
+    private func isRecoverablePlaybackError(_ error: Error) -> Bool {
+        let error = error as NSError
+        return error.domain == "MPMusicPlayerControllerErrorDomain"
+            && [2, 6, 9].contains(error.code)
     }
 
     private func rebuildQueueEntrySongMapping() {
@@ -352,7 +521,7 @@ final class MusicPlayerViewModel: ObservableObject {
         }
 
         // Sending a large library to MusicKit delays initial playback. Keep a
-        // generous local window so normal previous and next navigation stays fast.
+        // compact local window so normal previous and next navigation stays fast.
         return PlaybackQueueWindow.items(from: queue, startingAt: songIndex)
     }
 
@@ -391,10 +560,18 @@ final class MusicPlayerViewModel: ObservableObject {
         lastPersistedPlaybackTime = normalizedTime
     }
 
-    private func reportPlaybackErrorUnlessPlaying(_ error: Error, expectedSong: Song) async {
+    private func reportPlaybackErrorUnlessPlaying(
+        _ error: Error,
+        expectedSong: Song,
+        requestID: UUID
+    ) async {
         // MusicKit on macOS can report a queue interruption after playback has
         // already started. Only surface the error if the requested song did not win.
         for attempt in 0..<5 {
+            guard isCurrentPlaybackRequest(requestID) else {
+                return
+            }
+
             syncPlayerState()
 
             if playbackStatus == .playing,
