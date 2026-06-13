@@ -11,11 +11,13 @@ import SwiftUI
 struct NowPlayingBar: View {
     let song: Song
     let isPlaying: Bool
+    let playbackMode: PlaybackMode
     @ObservedObject var playbackTime: PlaybackTimeState
     let onPrevious: () -> Void
     let onTogglePlayback: () -> Void
     let onNext: () -> Void
     let onSeek: (TimeInterval) -> Void
+    let onSelectPlaybackMode: (PlaybackMode) -> Void
     let onShowQueue: () -> Void
     let onOpenDetails: () -> Void
     let onOpenArtist: (Song) -> Void
@@ -37,6 +39,8 @@ struct NowPlayingBar: View {
                 AudioRoutePickerButton()
                 CompactPlayerOptionsMenu(
                     song: song,
+                    playbackMode: playbackMode,
+                    onSelectPlaybackMode: onSelectPlaybackMode,
                     onShowQueue: onShowQueue
                 )
 #if os(macOS)

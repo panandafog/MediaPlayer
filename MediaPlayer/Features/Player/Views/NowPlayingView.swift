@@ -30,6 +30,7 @@ struct NowPlayingView: View {
                 NowPlayingContent(
                     song: song,
                     isPlaying: player.isPlaying,
+                    playbackMode: player.playbackMode,
                     playbackTime: player.playbackTime,
                     onPrevious: {
                         Task {
@@ -47,6 +48,7 @@ struct NowPlayingView: View {
                         }
                     },
                     onSeek: player.seek,
+                    onSelectPlaybackMode: player.setPlaybackMode,
                     onShowQueue: {
                         isShowingQueue = true
                     },
@@ -70,11 +72,13 @@ struct NowPlayingView: View {
 private struct NowPlayingContent: View {
     let song: Song
     let isPlaying: Bool
+    let playbackMode: PlaybackMode
     @ObservedObject var playbackTime: PlaybackTimeState
     let onPrevious: () -> Void
     let onTogglePlayback: () -> Void
     let onNext: () -> Void
     let onSeek: (TimeInterval) -> Void
+    let onSelectPlaybackMode: (PlaybackMode) -> Void
     let onShowQueue: () -> Void
     let onOpenArtist: ((Song) -> Void)?
     let onOpenAlbum: ((Song) -> Void)?
@@ -140,6 +144,8 @@ private struct NowPlayingContent: View {
 
                 PlayerUtilityControls(
                     song: song,
+                    playbackMode: playbackMode,
+                    onSelectPlaybackMode: onSelectPlaybackMode,
                     onShowQueue: onShowQueue
                 )
             }

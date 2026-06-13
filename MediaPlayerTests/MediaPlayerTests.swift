@@ -51,6 +51,25 @@ struct MediaPlayerTests {
         #expect(PlaybackQueueWindow.itemsAfterCurrent(in: items, currentIndex: nil).isEmpty)
     }
 
+    @Test func mapsListeningModesToNativeRepeatMode() {
+        #expect(PlaybackMode.normal.nativeRepeatMode == .none)
+        #expect(PlaybackMode.shuffle.nativeRepeatMode == .none)
+        #expect(PlaybackMode.repeatQueue.nativeRepeatMode == .all)
+        #expect(PlaybackMode.repeatOne.nativeRepeatMode == .one)
+    }
+
+    @Test func shufflesActualPlaybackQueueStartingWithCurrentItem() {
+        let items = Array(0..<5)
+        let shuffledItems = PlaybackQueueOrder.shuffledItems(
+            from: items,
+            startingAt: 2,
+            shuffle: { _ in }
+        )
+
+        #expect(shuffledItems == [0, 1, 2, 4, 3])
+        #expect(Set(shuffledItems) == Set(items))
+    }
+
     @Test func definesSixEqualizerBandsWithUniqueStorageKeys() {
         let bands = EqualizerBand.allCases
 

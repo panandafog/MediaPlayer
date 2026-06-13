@@ -10,11 +10,18 @@ import SwiftUI
 
 struct PlayerUtilityControls: View {
     let song: Song
+    let playbackMode: PlaybackMode
+    let onSelectPlaybackMode: (PlaybackMode) -> Void
     let onShowQueue: () -> Void
 
     var body: some View {
         HStack(spacing: 14) {
             AudioRoutePickerButton(usesGlassBackground: true)
+
+            PlaybackModeMenu(
+                playbackMode: playbackMode,
+                onSelect: onSelectPlaybackMode
+            )
 
             UtilityButton(
                 title: "Playing Next",
@@ -29,10 +36,19 @@ struct PlayerUtilityControls: View {
 
 struct CompactPlayerOptionsMenu: View {
     let song: Song
+    let playbackMode: PlaybackMode
+    let onSelectPlaybackMode: (PlaybackMode) -> Void
     let onShowQueue: () -> Void
 
     var body: some View {
         Menu {
+            PlaybackModeMenuContent(
+                playbackMode: playbackMode,
+                onSelect: onSelectPlaybackMode
+            )
+
+            Divider()
+
             Button(action: onShowQueue) {
                 Label("Playing Next", systemImage: "list.bullet")
             }
@@ -54,6 +70,46 @@ struct CompactPlayerOptionsMenu: View {
         }
         .menuStyle(.borderlessButton)
         .accessibilityLabel("More Player Options")
+    }
+}
+
+private struct PlaybackModeMenu: View {
+    let playbackMode: PlaybackMode
+    let onSelect: (PlaybackMode) -> Void
+
+    var body: some View {
+        Menu {
+            PlaybackModeMenuContent(
+                playbackMode: playbackMode,
+                onSelect: onSelect
+            )
+        } label: {
+            Image(systemName: playbackMode.systemImage)
+                .font(.title3)
+                .frame(width: 42, height: 42)
+        }
+        .buttonStyle(.glass)
+        .buttonBorderShape(.circle)
+        .accessibilityLabel("Listening Mode: \(playbackMode.title)")
+    }
+}
+
+private struct PlaybackModeMenuContent: View {
+    let playbackMode: PlaybackMode
+    let onSelect: (PlaybackMode) -> Void
+
+    var body: some View {
+        ForEach(PlaybackMode.allCases) { mode in
+            Button {
+                onSelect(mode)
+            } label: {
+                Label {
+                    Text(mode.title)
+                } icon: {
+                    Image(systemName: mode == playbackMode ? "checkmark" : mode.systemImage)
+                }
+            }
+        }
     }
 }
 

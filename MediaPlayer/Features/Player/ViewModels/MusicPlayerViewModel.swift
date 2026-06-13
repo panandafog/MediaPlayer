@@ -16,6 +16,7 @@ final class MusicPlayerViewModel: ObservableObject {
     @Published private(set) var playbackStatus: MusicPlayer.PlaybackStatus = .stopped
     @Published private(set) var errorMessage: String?
     @Published private(set) var queueSongs: [Song] = []
+    @Published private(set) var playbackMode: PlaybackMode = .normal
 
     let playbackTime = PlaybackTimeState()
     let currentSongState = CurrentSongState()
@@ -31,8 +32,10 @@ final class MusicPlayerViewModel: ObservableObject {
     private var playbackTimeCancellable: AnyCancellable?
     private var playerStateRefreshTask: Task<Void, Never>?
     private var queueExtensionTask: Task<Void, Never>?
+    private var queueReorderTask: Task<Void, Never>?
     private var playbackRequestID = UUID()
     private var currentSongIndex: Int?
+    private var sourceQueueSongs: [Song] = []
     private var songIDsByQueueEntryID: [String: MusicItemID] = [:]
     private var didAttemptPlaybackRestoration = false
     private var lastPersistedSongID: MusicItemID?
@@ -58,28 +61,11 @@ final class MusicPlayerViewModel: ObservableObject {
     }
 
     func play(_ song: Song, in queue: [Song]) async {
-        let requestID = beginPlaybackRequest()
-        let playbackQueue = makePlaybackQueue(from: queue, startingAt: song)
+        let sourceQueue = makePlaybackQueue(from: queue, startingAt: song)
+        sourceQueueSongs = sourceQueue
+        let playbackQueue = orderedPlaybackQueue(from: sourceQueue, startingAt: song)
 
-        do {
-            try await startPlayback(
-                song,
-                in: playbackQueue,
-                requestID: requestID
-            )
-            schedulePlayerStateRefresh()
-        } catch {
-            guard isCurrentPlaybackRequest(requestID) else {
-                return
-            }
-
-            await recoverPlayback(
-                song,
-                in: playbackQueue,
-                requestID: requestID,
-                originalError: error
-            )
-        }
+        await playPreparedQueue(song, in: playbackQueue)
     }
 
     func togglePlayback(queue: [Song]) async {
@@ -147,6 +133,23 @@ final class MusicPlayerViewModel: ObservableObject {
         }
     }
 
+    func setPlaybackMode(_ playbackMode: PlaybackMode) {
+        guard self.playbackMode != playbackMode else {
+            return
+        }
+
+        let previousMode = self.playbackMode
+        updatePlaybackMode(playbackMode)
+        applyNativePlaybackMode()
+
+        guard previousMode == .shuffle || playbackMode == .shuffle,
+              let currentSong else {
+            return
+        }
+
+        reorderFutureQueueWithoutRestart(around: currentSong)
+    }
+
     func seek(to time: TimeInterval) {
         let normalizedTime = PlaybackProgress.normalizedTime(
             time,
@@ -158,7 +161,7 @@ final class MusicPlayerViewModel: ObservableObject {
     }
 
     func playFromCurrentQueue(_ song: Song) async {
-        await play(song, in: queueSongs)
+        await playPreparedQueue(song, in: queueSongs)
     }
 
     func refreshPlaybackState() {
@@ -197,6 +200,7 @@ final class MusicPlayerViewModel: ObservableObject {
             restoredQueue = [currentSong]
         }
 
+        sourceQueueSongs = restoredQueue
         installPlaybackQueue(restoredQueue, startingAt: currentSong)
         seek(to: snapshot.playbackTime)
         syncPlayerState()
@@ -339,6 +343,14 @@ final class MusicPlayerViewModel: ObservableObject {
         self.playbackStatus = playbackStatus
     }
 
+    private func updatePlaybackMode(_ playbackMode: PlaybackMode) {
+        guard self.playbackMode != playbackMode else {
+            return
+        }
+
+        self.playbackMode = playbackMode
+    }
+
     private func updateCurrentSong(_ song: Song) {
         guard currentSong?.id != song.id else {
             return
@@ -359,6 +371,7 @@ final class MusicPlayerViewModel: ObservableObject {
     private func installPlaybackQueue(_ songs: [Song], startingAt song: Song) {
         let playbackQueue = ApplicationMusicPlayer.Queue(for: songs, startingAt: song)
         player.queue = playbackQueue
+        applyNativePlaybackMode()
         setPlaybackQueue(songs, startingAt: song)
         songIDsByQueueEntryID = [:]
         rebuildQueueEntrySongMapping()
@@ -367,6 +380,7 @@ final class MusicPlayerViewModel: ObservableObject {
 
     private func beginPlaybackRequest() -> UUID {
         queueExtensionTask?.cancel()
+        queueReorderTask?.cancel()
         let requestID = UUID()
         playbackRequestID = requestID
         errorMessage = nil
@@ -395,7 +409,9 @@ final class MusicPlayerViewModel: ObservableObject {
             player.playbackTime = playbackTime
             self.playbackTime.update(to: playbackTime)
         }
+        applyNativePlaybackMode()
         try await player.play()
+        applyNativePlaybackMode()
         scheduleQueueExtension(followingSongs, requestID: requestID)
     }
 
@@ -412,6 +428,7 @@ final class MusicPlayerViewModel: ObservableObject {
         let followingSongs = Array(songs.dropFirst(songIndex + 1))
         let playbackQueue = ApplicationMusicPlayer.Queue(for: startupSongs, startingAt: song)
         player.queue = playbackQueue
+        applyNativePlaybackMode()
         setPlaybackQueue(songs, startingAt: song)
         songIDsByQueueEntryID = [:]
         subscribeToQueue()
@@ -437,6 +454,7 @@ final class MusicPlayerViewModel: ObservableObject {
                     return
                 }
 
+                applyNativePlaybackMode()
                 rebuildQueueEntrySongMapping()
                 subscribeToQueue()
             } catch is CancellationError {
@@ -525,6 +543,123 @@ final class MusicPlayerViewModel: ObservableObject {
         return PlaybackQueueWindow.items(from: queue, startingAt: songIndex)
     }
 
+    private func orderedPlaybackQueue(from queue: [Song], startingAt song: Song) -> [Song] {
+        guard playbackMode == .shuffle,
+              let songIndex = queue.firstIndex(where: { $0.id == song.id }) else {
+            return queue
+        }
+
+        return PlaybackQueueOrder.shuffledItems(from: queue, startingAt: songIndex)
+    }
+
+    private func sourceQueueContainingCurrentSong(_ currentSong: Song) -> [Song] {
+        if sourceQueueSongs.contains(where: { $0.id == currentSong.id }) {
+            return sourceQueueSongs
+        }
+
+        sourceQueueSongs = queueSongs
+        return queueSongs
+    }
+
+    private func reorderFutureQueueWithoutRestart(around currentSong: Song) {
+        queueExtensionTask?.cancel()
+        queueReorderTask?.cancel()
+
+        guard let currentEntry = player.queue.currentEntry,
+              let currentEntryIndex = player.queue.entries.firstIndex(of: currentEntry) else {
+            return
+        }
+
+        let sourceQueue = sourceQueueContainingCurrentSong(currentSong)
+        let orderedQueue = orderedPlaybackQueue(from: sourceQueue, startingAt: currentSong)
+        guard let orderedCurrentIndex = orderedQueue.firstIndex(where: { $0.id == currentSong.id }) else {
+            return
+        }
+
+        let futureSongs = Array(orderedQueue.dropFirst(orderedCurrentIndex + 1))
+        var entries = player.queue.entries
+        let futureEntriesStart = entries.index(after: currentEntryIndex)
+        let previousAndCurrentSongs = entries[...currentEntryIndex].compactMap(song(for:))
+
+        entries.removeSubrange(futureEntriesStart..<entries.endIndex)
+        player.queue.entries = entries
+        queueSongs = previousAndCurrentSongs + futureSongs
+        currentSongIndex = previousAndCurrentSongs.indices.last
+        songIDsByQueueEntryID = [:]
+        applyNativePlaybackMode()
+        subscribeToQueue()
+        persistPlaybackSnapshot(force: true)
+
+        queueReorderTask = Task { @MainActor [weak self] in
+            do {
+                guard let self else {
+                    return
+                }
+
+                if !futureSongs.isEmpty {
+                    try await player.queue.insert(futureSongs, position: .afterCurrentEntry)
+                }
+
+                guard !Task.isCancelled else {
+                    return
+                }
+
+                applyNativePlaybackMode()
+                rebuildQueueEntrySongMapping()
+                subscribeToQueue()
+                schedulePlayerStateRefresh()
+            } catch is CancellationError {
+                return
+            } catch {
+                self?.report("Could not change the listening mode.", error: error)
+            }
+        }
+    }
+
+    private func song(for entry: MusicPlayer.Queue.Entry) -> Song? {
+        if case let .song(song) = entry.item {
+            return song
+        }
+
+        guard let songID = songIDsByQueueEntryID[entry.id] else {
+            return nil
+        }
+
+        return queueSongs.first(where: { $0.id == songID })
+            ?? sourceQueueSongs.first(where: { $0.id == songID })
+    }
+
+    private func applyNativePlaybackMode() {
+        // The app owns shuffle order because MusicKit does not reliably reorder
+        // queues that are extended after playback starts.
+        player.state.shuffleMode = .off
+        player.state.repeatMode = playbackMode.nativeRepeatMode
+    }
+
+    private func playPreparedQueue(_ song: Song, in playbackQueue: [Song]) async {
+        let requestID = beginPlaybackRequest()
+
+        do {
+            try await startPlayback(
+                song,
+                in: playbackQueue,
+                requestID: requestID
+            )
+            schedulePlayerStateRefresh()
+        } catch {
+            guard isCurrentPlaybackRequest(requestID) else {
+                return
+            }
+
+            await recoverPlayback(
+                song,
+                in: playbackQueue,
+                requestID: requestID,
+                originalError: error
+            )
+        }
+    }
+
     private func persistPlaybackSnapshot(force: Bool = false) {
         guard let currentSong else {
             return
@@ -544,7 +679,7 @@ final class MusicPlayerViewModel: ObservableObject {
             return
         }
 
-        var queueSongIDs = queueSongs.map(\.id)
+        var queueSongIDs = sourceQueueContainingCurrentSong(currentSong).map(\.id)
         if !queueSongIDs.contains(currentSong.id) {
             queueSongIDs = [currentSong.id]
         }

@@ -21,6 +21,7 @@ struct NowPlayingBarContainer: View {
                 NowPlayingBar(
                     song: song,
                     isPlaying: player.isPlaying,
+                    playbackMode: player.playbackMode,
                     playbackTime: player.playbackTime,
                     onPrevious: {
                         Task {
@@ -38,6 +39,7 @@ struct NowPlayingBarContainer: View {
                         }
                     },
                     onSeek: player.seek,
+                    onSelectPlaybackMode: player.setPlaybackMode,
                     onShowQueue: {
                         isShowingQueue = true
                     },
