@@ -18,6 +18,7 @@ struct PlayerWindow: View {
     @ObservedObject var player: MusicPlayerViewModel
     @ObservedObject var library: MusicLibraryViewModel
     @ObservedObject var mainWindowNavigation: MainWindowNavigation
+    @State private var isFullScreen = false
 
     var body: some View {
         NavigationStack {
@@ -28,9 +29,13 @@ struct PlayerWindow: View {
             )
         }
         .containerBackground(for: .window) {
-            PlayerWindowGlassBackground()
+            if isFullScreen {
+                Color(nsColor: .windowBackgroundColor)
+            } else {
+                PlayerWindowGlassBackground()
+            }
         }
-        .background(PlayerWindowConfigurator())
+        .background(PlayerWindowConfigurator(isFullScreen: $isFullScreen))
         .task {
             await library.loadIfAuthorized()
         }
@@ -76,8 +81,10 @@ private struct PlayerWindowGlassBackground: NSViewRepresentable {
 }
 
 private struct PlayerWindowConfigurator: NSViewRepresentable {
+    @Binding var isFullScreen: Bool
+
     func makeCoordinator() -> Coordinator {
-        Coordinator()
+        Coordinator(isFullScreen: $isFullScreen)
     }
 
     func makeNSView(context: Context) -> NSView {
@@ -87,6 +94,7 @@ private struct PlayerWindowConfigurator: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {
+        context.coordinator.update(isFullScreen: $isFullScreen)
         context.coordinator.attach(to: nsView)
     }
 
@@ -96,9 +104,18 @@ private struct PlayerWindowConfigurator: NSViewRepresentable {
 
     @MainActor
     final class Coordinator: NSObject {
+        private var isFullScreen: Binding<Bool>
         private weak var window: NSWindow?
         private var observers: [NSObjectProtocol] = []
         private let delegateProxy = PlayerWindowDelegateProxy()
+
+        init(isFullScreen: Binding<Bool>) {
+            self.isFullScreen = isFullScreen
+        }
+
+        func update(isFullScreen: Binding<Bool>) {
+            self.isFullScreen = isFullScreen
+        }
 
         func attach(to view: NSView) {
             DispatchQueue.main.async { [weak self, weak view] in
@@ -134,10 +151,12 @@ private struct PlayerWindowConfigurator: NSViewRepresentable {
         private func observe(_ window: NSWindow) {
             detach()
             self.window = window
+            isFullScreen.wrappedValue = window.styleMask.contains(.fullScreen)
 
             let names: [Notification.Name] = [
                 NSWindow.didBecomeKeyNotification,
                 NSWindow.didUpdateNotification,
+                NSWindow.willEnterFullScreenNotification,
                 NSWindow.didEnterFullScreenNotification,
                 NSWindow.didExitFullScreenNotification
             ]
@@ -153,6 +172,13 @@ private struct PlayerWindowConfigurator: NSViewRepresentable {
                     }
 
                     Task { @MainActor in
+                        if name == NSWindow.willEnterFullScreenNotification
+                            || name == NSWindow.didEnterFullScreenNotification {
+                            self.isFullScreen.wrappedValue = true
+                        } else if name == NSWindow.didExitFullScreenNotification {
+                            self.isFullScreen.wrappedValue = false
+                        }
+
                         self.configure(window)
                     }
                 }
