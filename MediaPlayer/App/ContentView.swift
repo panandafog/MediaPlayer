@@ -39,30 +39,31 @@ struct ContentView: View {
             )
             .navigationTitle(library.section.title)
             .toolbar {
+#if os(macOS)
+                ToolbarItemGroup(placement: .primaryAction) {
+                    if library.authorizationStatus == .authorized {
+                        libraryMenu
+                    }
+
+                    SettingsLink {
+                        Label("Settings", systemImage: "gearshape")
+                    }
+                }
+#else
                 if library.authorizationStatus == .authorized {
                     ToolbarItem(placement: .primaryAction) {
-                        MusicLibraryMenu(
-                            section: $library.section,
-                            sortOption: $library.sortOption,
-                            isRefreshing: library.isLoading,
-                            onRefresh: refreshLibrary
-                        )
+                        libraryMenu
                     }
                 }
 
                 ToolbarItem(placement: .secondaryAction) {
-#if os(macOS)
-                    SettingsLink {
-                        Label("Settings", systemImage: "gearshape")
-                    }
-#else
                     Button {
                         isShowingSettings = true
                     } label: {
                         Label("Settings", systemImage: "gearshape")
                     }
-#endif
                 }
+#endif
             }
             .navigationDestination(for: LibraryNavigationDestination.self) { destination in
                 LibraryNavigationDestinationView(
@@ -154,6 +155,15 @@ struct ContentView: View {
             await library.loadLibrary()
             player.restorePlaybackIfNeeded(from: library.songs)
         }
+    }
+
+    private var libraryMenu: some View {
+        MusicLibraryMenu(
+            section: $library.section,
+            sortOption: $library.sortOption,
+            isRefreshing: library.isLoading,
+            onRefresh: refreshLibrary
+        )
     }
 
     private func loadLibraryAndRestorePlayback() async {

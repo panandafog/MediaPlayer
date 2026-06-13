@@ -39,8 +39,24 @@ struct CompactPlayerOptionsMenu: View {
     let playbackMode: PlaybackMode
     let onSelectPlaybackMode: (PlaybackMode) -> Void
     let onShowQueue: () -> Void
+#if os(macOS)
+    @State private var isShowingOptions = false
+#endif
 
+    @ViewBuilder
     var body: some View {
+#if os(macOS)
+        Button {
+            isShowingOptions.toggle()
+        } label: {
+            compactMenuLabel
+        }
+        .buttonStyle(.borderless)
+        .popover(isPresented: $isShowingOptions, arrowEdge: .bottom) {
+            macOSOptionsPopover
+        }
+        .accessibilityLabel("More Player Options")
+#else
         Menu {
             PlaybackModeMenuContent(
                 playbackMode: playbackMode,
@@ -64,13 +80,68 @@ struct CompactPlayerOptionsMenu: View {
                 .disabled(true)
             }
         } label: {
-            Image(systemName: "ellipsis.circle")
-                .font(.title3)
-                .frame(width: 30, height: 30)
+            compactMenuLabel
         }
         .menuStyle(.borderlessButton)
         .accessibilityLabel("More Player Options")
+#endif
     }
+
+    private var compactMenuLabel: some View {
+        Image(systemName: "ellipsis.circle")
+            .font(.title3)
+            .frame(width: 30, height: 30)
+            .contentShape(Rectangle())
+    }
+
+#if os(macOS)
+    private var macOSOptionsPopover: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            ForEach(PlaybackMode.allCases) { mode in
+                Button {
+                    isShowingOptions = false
+                    onSelectPlaybackMode(mode)
+                } label: {
+                    Label {
+                        Text(mode.title)
+                    } icon: {
+                        Image(systemName: mode == playbackMode ? "checkmark" : mode.systemImage)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(.plain)
+            }
+
+            Divider()
+
+            Button {
+                isShowingOptions = false
+                onShowQueue()
+            } label: {
+                Label("Playing Next", systemImage: "list.bullet")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .buttonStyle(.plain)
+
+            if let url = song.url {
+                ShareLink(item: url) {
+                    Label("Share Track Link", systemImage: "square.and.arrow.up")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(.plain)
+            } else {
+                Button(action: {}) {
+                    Label("Track Link Unavailable", systemImage: "square.and.arrow.up")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .buttonStyle(.plain)
+                .disabled(true)
+            }
+        }
+        .padding(10)
+        .frame(width: 190)
+    }
+#endif
 }
 
 private struct PlaybackModeMenu: View {

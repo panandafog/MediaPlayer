@@ -23,7 +23,9 @@ struct MediaPlayerApp: App {
                 library: library,
                 mainWindowNavigation: mainWindowNavigation
             )
+            .frame(minWidth: 300, minHeight: 300)
         }
+        .windowResizability(.contentMinSize)
 
         Window("Mini Player", id: MiniPlayerWindow.id) {
             MiniPlayerWindow(

@@ -22,6 +22,7 @@ struct NowPlayingBar: View {
     let onOpenDetails: () -> Void
     let onOpenArtist: (Song) -> Void
     let onOpenAlbum: (Song) -> Void
+    @State private var availableWidth: CGFloat = 0
 
     var body: some View {
         VStack(spacing: 8) {
@@ -33,47 +34,79 @@ struct NowPlayingBar: View {
 
             HStack(spacing: 10) {
                 trackSummary
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .layoutPriority(1)
 
                 Spacer(minLength: 4)
 
-                AudioRoutePickerButton()
-                CompactPlayerOptionsMenu(
-                    song: song,
-                    playbackMode: playbackMode,
-                    onSelectPlaybackMode: onSelectPlaybackMode,
-                    onShowQueue: onShowQueue
-                )
+                if layout.showsUtilityActions {
+                    AudioRoutePickerButton()
+                    CompactPlayerOptionsMenu(
+                        song: song,
+                        playbackMode: playbackMode,
+                        onSelectPlaybackMode: onSelectPlaybackMode,
+                        onShowQueue: onShowQueue
+                    )
+                }
+
 #if os(macOS)
-                PlayerControlButton(
-                    title: "Open Mini Player",
-                    systemImage: "macwindow",
-                    action: onOpenDetails
-                )
+                if layout.showsMiniPlayer {
+                    PlayerControlButton(
+                        title: "Open Mini Player",
+                        systemImage: "macwindow",
+                        action: onOpenDetails
+                    )
+                }
 #endif
-                PlayerControlButton(
-                    title: "Previous track",
-                    systemImage: "backward.fill",
-                    action: onPrevious
-                )
+                if layout.showsTrackNavigation {
+                    PlayerControlButton(
+                        title: "Previous track",
+                        systemImage: "backward.fill",
+                        action: onPrevious
+                    )
+                }
                 PlayerControlButton(
                     title: isPlaying ? "Pause" : "Play",
                     systemImage: isPlaying ? "pause.fill" : "play.fill",
                     action: onTogglePlayback
                 )
-                PlayerControlButton(
-                    title: "Next track",
-                    systemImage: "forward.fill",
-                    action: onNext
-                )
+                if layout.showsTrackNavigation {
+                    PlayerControlButton(
+                        title: "Next track",
+                        systemImage: "forward.fill",
+                        action: onNext
+                    )
+                }
             }
         }
         .padding(12)
+        .background {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .fill(.clear)
+                .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .onTapGesture(perform: handleBackgroundTap)
+        }
         .glassEffect(
             .regular,
             in: RoundedRectangle(cornerRadius: 22, style: .continuous)
         )
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
+        .onGeometryChange(for: CGFloat.self) { geometry in
+            geometry.size.width
+        } action: { width in
+            availableWidth = width
+        }
+    }
+
+    private var layout: NowPlayingBarLayout {
+        NowPlayingBarLayout(availableWidth: availableWidth)
+    }
+
+    private func handleBackgroundTap() {
+#if os(iOS)
+        onOpenDetails()
+#endif
     }
 
     @ViewBuilder
@@ -124,6 +157,38 @@ struct NowPlayingBar: View {
 #endif
             }
         }
+    }
+}
+
+private enum NowPlayingBarLayout {
+    case expanded
+    case withoutUtilityActions
+    case transportOnly
+    case playbackOnly
+
+    init(availableWidth: CGFloat) {
+        switch availableWidth {
+        case 540...:
+            self = .expanded
+        case 440...:
+            self = .withoutUtilityActions
+        case 360...:
+            self = .transportOnly
+        default:
+            self = .playbackOnly
+        }
+    }
+
+    var showsUtilityActions: Bool {
+        self == .expanded
+    }
+
+    var showsMiniPlayer: Bool {
+        self == .expanded || self == .withoutUtilityActions
+    }
+
+    var showsTrackNavigation: Bool {
+        self != .playbackOnly
     }
 }
 
