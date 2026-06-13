@@ -27,15 +27,16 @@ struct MediaPlayerApp: App {
         }
         .windowResizability(.contentMinSize)
 
-        Window("Mini Player", id: MiniPlayerWindow.id) {
-            MiniPlayerWindow(
+        Window("Player", id: PlayerWindow.id) {
+            PlayerWindow(
                 player: player,
                 library: library,
                 mainWindowNavigation: mainWindowNavigation
             )
+            .windowFullScreenBehavior(.enabled)
         }
         .defaultSize(width: 380, height: 560)
-        .windowResizability(.contentSize)
+        .windowResizability(.contentMinSize)
 
         Settings {
             PlayerSettingsView()

@@ -50,9 +50,9 @@ struct NowPlayingBar: View {
                 }
 
 #if os(macOS)
-                if layout.showsMiniPlayer {
+                if layout.showsPlayerWindow {
                     PlayerControlButton(
-                        title: "Open Mini Player",
+                        title: "Open Player",
                         systemImage: "macwindow",
                         action: onOpenDetails
                     )
@@ -183,7 +183,7 @@ private enum NowPlayingBarLayout {
         self == .expanded
     }
 
-    var showsMiniPlayer: Bool {
+    var showsPlayerWindow: Bool {
         self == .expanded || self == .withoutUtilityActions
     }
 

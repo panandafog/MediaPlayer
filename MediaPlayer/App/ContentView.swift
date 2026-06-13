@@ -173,7 +173,7 @@ struct ContentView: View {
 
     private func openNowPlaying() {
 #if os(macOS)
-        openWindow(id: MiniPlayerWindow.id)
+        openWindow(id: PlayerWindow.id)
 #else
         isShowingNowPlaying = true
 #endif

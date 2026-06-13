@@ -87,72 +87,172 @@ private struct NowPlayingContent: View {
         GeometryReader { geometry in
             let metrics = NowPlayingLayoutMetrics(availableSize: geometry.size)
 
-            VStack(spacing: metrics.contentSpacing) {
-                SongArtwork(
-                    artwork: song.artwork,
-                    size: metrics.artworkSize,
-                    usesHighResolutionSource: true
-                )
-
-                VStack(spacing: 6) {
-                    Text(song.title)
-                        .font(.title2.weight(.semibold))
-                        .lineLimit(2)
-                        .multilineTextAlignment(.center)
-                    PlayerMetadataLink(
-                        title: song.artistName,
-                        font: .headline,
-                        foregroundStyle: .secondary,
-                        action: onOpenArtist.map { action in
-                            { action(song) }
-                        }
-                    )
-                    PlayerMetadataLink(
-                        title: song.albumTitle ?? "Unknown Album",
-                        font: .subheadline,
-                        foregroundStyle: .tertiary,
-                        action: onOpenAlbum.map { action in
-                            { action(song) }
-                        }
-                    )
-                }
-
-                PlaybackProgressSlider(
-                    playbackTime: playbackTime.value,
-                    duration: song.duration,
-                    onSeek: onSeek
-                )
-
-                HStack(spacing: metrics.controlSpacing) {
-                    LargePlayerControlButton(
-                        title: "Previous track",
-                        systemImage: "backward.fill",
-                        action: onPrevious
-                    )
-                    LargePlayerControlButton(
-                        title: isPlaying ? "Pause" : "Play",
-                        systemImage: isPlaying ? "pause.fill" : "play.fill",
-                        isPrimary: true,
-                        action: onTogglePlayback
-                    )
-                    LargePlayerControlButton(
-                        title: "Next track",
-                        systemImage: "forward.fill",
-                        action: onNext
-                    )
-                }
-
-                PlayerUtilityControls(
-                    song: song,
-                    playbackMode: playbackMode,
-                    onSelectPlaybackMode: onSelectPlaybackMode,
-                    onShowQueue: onShowQueue
-                )
+            switch metrics.layout {
+            case .fullHorizontal:
+                horizontalLayout(metrics: metrics)
+            case .fullVertical:
+                verticalLayout(metrics: metrics)
+            case .compactHorizontal:
+                compactHorizontalLayout(metrics: metrics, showsPlaybackControl: true)
+            case .compactVertical:
+                compactVerticalLayout(metrics: metrics, showsPlaybackControl: true)
+            case .minimalHorizontal:
+                compactHorizontalLayout(metrics: metrics, showsPlaybackControl: false)
+            case .minimalVertical:
+                compactVerticalLayout(metrics: metrics, showsPlaybackControl: false)
             }
-            .padding(metrics.outerPadding)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
+
+    private func verticalLayout(metrics: NowPlayingLayoutMetrics) -> some View {
+        VStack(spacing: metrics.contentSpacing) {
+            artwork(size: metrics.artworkSize)
+            detailsAndControls(metrics: metrics)
+        }
+        .padding(metrics.outerPadding)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func horizontalLayout(metrics: NowPlayingLayoutMetrics) -> some View {
+        HStack(spacing: metrics.columnSpacing) {
+            artwork(size: metrics.artworkSize)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            detailsAndControls(metrics: metrics)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .padding(metrics.outerPadding)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func compactVerticalLayout(
+        metrics: NowPlayingLayoutMetrics,
+        showsPlaybackControl: Bool
+    ) -> some View {
+        VStack(spacing: metrics.compactSpacing) {
+            artwork(size: metrics.compactArtworkSize)
+            compactDetails(showsPlaybackControl: showsPlaybackControl)
+        }
+        .padding(metrics.compactPadding)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func compactHorizontalLayout(
+        metrics: NowPlayingLayoutMetrics,
+        showsPlaybackControl: Bool
+    ) -> some View {
+        HStack(spacing: metrics.compactSpacing) {
+            artwork(size: metrics.compactArtworkSize)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            compactDetails(showsPlaybackControl: showsPlaybackControl)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .padding(metrics.compactPadding)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func artwork(size: CGFloat) -> some View {
+        SongArtwork(
+            artwork: song.artwork,
+            size: size,
+            usesHighResolutionSource: true
+        )
+    }
+
+    private func detailsAndControls(metrics: NowPlayingLayoutMetrics) -> some View {
+        VStack(spacing: metrics.contentSpacing) {
+            Spacer(minLength: 0)
+
+            metadata
+
+            PlaybackProgressSlider(
+                playbackTime: playbackTime.value,
+                duration: song.duration,
+                onSeek: onSeek
+            )
+
+            HStack(spacing: metrics.controlSpacing) {
+                LargePlayerControlButton(
+                    title: "Previous track",
+                    systemImage: "backward.fill",
+                    action: onPrevious
+                )
+                LargePlayerControlButton(
+                    title: isPlaying ? "Pause" : "Play",
+                    systemImage: isPlaying ? "pause.fill" : "play.fill",
+                    isPrimary: true,
+                    action: onTogglePlayback
+                )
+                LargePlayerControlButton(
+                    title: "Next track",
+                    systemImage: "forward.fill",
+                    action: onNext
+                )
+            }
+
+            PlayerUtilityControls(
+                song: song,
+                playbackMode: playbackMode,
+                onSelectPlaybackMode: onSelectPlaybackMode,
+                onShowQueue: onShowQueue
+            )
+
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func compactDetails(showsPlaybackControl: Bool) -> some View {
+        VStack(spacing: 12) {
+            Text(song.title)
+                .font(.headline)
+                .lineLimit(showsPlaybackControl ? 3 : 2)
+                .multilineTextAlignment(.center)
+
+            if showsPlaybackControl {
+                LargePlayerControlButton(
+                    title: isPlaying ? "Pause" : "Play",
+                    systemImage: isPlaying ? "pause.fill" : "play.fill",
+                    isPrimary: true,
+                    action: onTogglePlayback
+                )
+            }
+        }
+    }
+
+    private var metadata: some View {
+        VStack(spacing: 6) {
+            Text(song.title)
+                .font(.title2.weight(.semibold))
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
+            PlayerMetadataLink(
+                title: song.artistName,
+                font: .headline,
+                foregroundStyle: .secondary,
+                action: onOpenArtist.map { action in
+                    { action(song) }
+                }
+            )
+            PlayerMetadataLink(
+                title: song.albumTitle ?? "Unknown Album",
+                font: .subheadline,
+                foregroundStyle: .tertiary,
+                action: onOpenAlbum.map { action in
+                    { action(song) }
+                }
+            )
+        }
+    }
+}
+
+private enum NowPlayingLayout: Equatable {
+    case fullVertical
+    case fullHorizontal
+    case compactVertical
+    case compactHorizontal
+    case minimalVertical
+    case minimalHorizontal
 }
 
 private struct PlayerMetadataLink<S: ShapeStyle>: View {
@@ -185,6 +285,30 @@ private struct PlayerMetadataLink<S: ShapeStyle>: View {
 private struct NowPlayingLayoutMetrics {
     let availableSize: CGSize
 
+    var layout: NowPlayingLayout {
+#if os(macOS)
+        if usesHorizontalLayout, validWidth >= 520, validHeight >= 300 {
+            return .fullHorizontal
+        }
+
+        if !usesHorizontalLayout, validWidth >= 300, validHeight >= 450 {
+            return .fullVertical
+        }
+
+        if usesHorizontalLayout, validWidth >= 300, validHeight >= 150 {
+            return .compactHorizontal
+        }
+
+        if !usesHorizontalLayout, validWidth >= 180, validHeight >= 240 {
+            return .compactVertical
+        }
+
+        return usesHorizontalLayout ? .minimalHorizontal : .minimalVertical
+#else
+        return usesHorizontalLayout ? .fullHorizontal : .fullVertical
+#endif
+    }
+
     private var isCompact: Bool {
         availableSize.height < 650
     }
@@ -197,12 +321,27 @@ private struct NowPlayingLayoutMetrics {
         isCompact ? 12 : 20
     }
 
+    var columnSpacing: CGFloat {
+        isCompact ? 20 : 32
+    }
+
     var controlSpacing: CGFloat {
         isCompact ? 30 : 42
     }
 
     var artworkSize: CGFloat {
-        max(
+        if usesHorizontalLayout {
+            return max(
+                min(
+                    (validWidth - outerPadding * 2 - columnSpacing) / 2,
+                    validHeight - outerPadding * 2,
+                    460
+                ),
+                1
+            )
+        }
+
+        return max(
             min(
                 validWidth - outerPadding * 2,
                 validHeight * (isCompact ? 0.38 : 0.46),
@@ -210,6 +349,42 @@ private struct NowPlayingLayoutMetrics {
             ),
             1
         )
+    }
+
+    var compactPadding: CGFloat {
+        min(validWidth, validHeight) < 240 ? 10 : 16
+    }
+
+    var compactSpacing: CGFloat {
+        min(validWidth, validHeight) < 240 ? 8 : 16
+    }
+
+    var compactArtworkSize: CGFloat {
+        if usesHorizontalLayout {
+            return max(
+                min(
+                    (validWidth - compactPadding * 2 - compactSpacing) / 2,
+                    validHeight - compactPadding * 2,
+                    360
+                ),
+                1
+            )
+        }
+
+        let reservedHeight: CGFloat = layout == .compactVertical ? 120 : 34
+
+        return max(
+            min(
+                validWidth - compactPadding * 2,
+                validHeight - compactPadding * 2 - compactSpacing - reservedHeight,
+                360
+            ),
+            1
+        )
+    }
+
+    private var usesHorizontalLayout: Bool {
+        validWidth > validHeight
     }
 
     private var validWidth: CGFloat {
