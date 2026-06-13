@@ -160,13 +160,6 @@ private struct PlayerWindowConfigurator: NSViewRepresentable {
         }
 
         private func configure(_ window: NSWindow) {
-            window.isOpaque = false
-            window.backgroundColor = .clear
-            window.titleVisibility = .hidden
-            window.titlebarAppearsTransparent = true
-            window.titlebarSeparatorStyle = .none
-            window.styleMask.insert(.fullSizeContentView)
-
             var collectionBehavior = window.collectionBehavior
             collectionBehavior.insert(.fullScreenPrimary)
             collectionBehavior.remove(.fullScreenAuxiliary)
