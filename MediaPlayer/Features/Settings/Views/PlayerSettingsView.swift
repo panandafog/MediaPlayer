@@ -10,6 +10,9 @@ struct PlayerSettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage(PlayerSettingsKey.searchBarPosition) private var searchBarPosition =
         SearchBarPosition.top.rawValue
+#elseif os(macOS)
+    @AppStorage(PlayerSettingsKey.usesLiquidGlassInPlayerWindow)
+    private var usesLiquidGlassInPlayerWindow = true
 #endif
 
     var body: some View {
@@ -34,8 +37,8 @@ struct PlayerSettingsView: View {
 
     private var settingsForm: some View {
         Form {
+            Section("Appearance") {
 #if os(iOS)
-            Section("Library") {
                 Picker("Search Position", selection: $searchBarPosition) {
                     ForEach(SearchBarPosition.allCases) { position in
                         Text(position.title)
@@ -43,8 +46,13 @@ struct PlayerSettingsView: View {
                     }
                 }
                 .pickerStyle(.segmented)
-            }
+#elseif os(macOS)
+                Toggle(
+                    "Use Liquid Glass in Player Window",
+                    isOn: $usesLiquidGlassInPlayerWindow
+                )
 #endif
+            }
 
             Section("Equalizer") {
                 EqualizerSettingsView()

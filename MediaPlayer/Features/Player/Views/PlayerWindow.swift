@@ -18,6 +18,8 @@ struct PlayerWindow: View {
     @ObservedObject var player: MusicPlayerViewModel
     @ObservedObject var library: MusicLibraryViewModel
     @ObservedObject var mainWindowNavigation: MainWindowNavigation
+    @AppStorage(PlayerSettingsKey.usesLiquidGlassInPlayerWindow)
+    private var usesLiquidGlassInPlayerWindow = true
     @State private var isFullScreen = false
 
     var body: some View {
@@ -29,7 +31,7 @@ struct PlayerWindow: View {
             )
         }
         .containerBackground(for: .window) {
-            if isFullScreen {
+            if isFullScreen || !usesLiquidGlassInPlayerWindow {
                 Color(nsColor: .windowBackgroundColor)
             } else {
                 PlayerWindowGlassBackground()

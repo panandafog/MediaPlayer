@@ -7,6 +7,7 @@ import Foundation
 
 enum PlayerSettingsKey {
     static let searchBarPosition = "settings.searchBarPosition"
+    static let usesLiquidGlassInPlayerWindow = "settings.usesLiquidGlassInPlayerWindow"
     static let equalizerGainPrefix = "settings.equalizer.gain."
 }
 

@@ -77,6 +77,32 @@ struct MediaPlayerTests {
         #expect(Set(bands.map(\.defaultsKey)).count == bands.count)
     }
 
+    @Test func persistsAppearanceSettingsAcrossLaunches() throws {
+        let suiteName = "MediaPlayerTests.\(UUID().uuidString)"
+        let firstLaunchDefaults = try #require(UserDefaults(suiteName: suiteName))
+        defer {
+            firstLaunchDefaults.removePersistentDomain(forName: suiteName)
+        }
+
+        firstLaunchDefaults.set(
+            false,
+            forKey: PlayerSettingsKey.usesLiquidGlassInPlayerWindow
+        )
+        firstLaunchDefaults.set("bottom", forKey: PlayerSettingsKey.searchBarPosition)
+
+        let nextLaunchDefaults = try #require(UserDefaults(suiteName: suiteName))
+
+        #expect(
+            nextLaunchDefaults.bool(
+                forKey: PlayerSettingsKey.usesLiquidGlassInPlayerWindow
+            ) == false
+        )
+        #expect(
+            nextLaunchDefaults.string(forKey: PlayerSettingsKey.searchBarPosition)
+                == "bottom"
+        )
+    }
+
     @Test @MainActor func storesPlaybackRestorationSnapshot() throws {
         let suiteName = "MediaPlayerTests.\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suiteName))
