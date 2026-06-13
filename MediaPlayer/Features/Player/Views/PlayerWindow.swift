@@ -27,6 +27,9 @@ struct PlayerWindow: View {
                 onOpenAlbum: openAlbum
             )
         }
+        .containerBackground(for: .window) {
+            PlayerWindowGlassBackground()
+        }
         .background(PlayerWindowConfigurator())
         .task {
             await library.loadIfAuthorized()
@@ -59,6 +62,17 @@ struct PlayerWindow: View {
         mainWindowNavigation.open(destination)
         openWindow(id: MainWindowNavigation.windowID)
     }
+}
+
+private struct PlayerWindowGlassBackground: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSGlassEffectView {
+        let glassView = NSGlassEffectView()
+        glassView.style = .regular
+        glassView.cornerRadius = 0
+        return glassView
+    }
+
+    func updateNSView(_ nsView: NSGlassEffectView, context: Context) {}
 }
 
 private struct PlayerWindowConfigurator: NSViewRepresentable {
@@ -146,6 +160,13 @@ private struct PlayerWindowConfigurator: NSViewRepresentable {
         }
 
         private func configure(_ window: NSWindow) {
+            window.isOpaque = false
+            window.backgroundColor = .clear
+            window.titleVisibility = .hidden
+            window.titlebarAppearsTransparent = true
+            window.titlebarSeparatorStyle = .none
+            window.styleMask.insert(.fullSizeContentView)
+
             var collectionBehavior = window.collectionBehavior
             collectionBehavior.insert(.fullScreenPrimary)
             collectionBehavior.remove(.fullScreenAuxiliary)
