@@ -1,0 +1,153 @@
+//
+//  MusicLibraryView.swift
+//  MediaPlayer
+//
+//
+
+import MusicKit
+import SwiftUI
+
+struct MusicLibraryView: View {
+    @ObservedObject var library: MusicLibraryViewModel
+    let currentSongState: CurrentSongState
+    let onPlay: (Song, [Song]) -> Void
+
+    var body: some View {
+        libraryContent
+    }
+
+    @ViewBuilder
+    private var libraryContent: some View {
+        switch library.authorizationStatus {
+        case .notDetermined:
+            PermissionView {
+                Task {
+                    await library.requestAuthorization()
+                }
+            }
+        case .denied:
+            AccessUnavailableView(
+                title: "Music Library Access Denied",
+                message: "Allow Music access in Settings under Privacy & Security > Media & Apple Music, then return to the app.",
+                actionTitle: "Open Settings",
+                action: AppSettingsOpener.open
+            )
+        case .restricted:
+            AccessUnavailableView(
+                title: "Music Library Access Restricted",
+                message: "System restrictions prevent access to your Music library."
+            )
+        case .authorized:
+            authorizedContent
+        @unknown default:
+            AccessUnavailableView(
+                title: "Music Library Unavailable",
+                message: "The app could not determine the Music access status."
+            )
+        }
+    }
+
+    @ViewBuilder
+    private var authorizedContent: some View {
+        if library.isEmpty, library.isLoading {
+            ProgressView("Loading your music library...")
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if library.isEmpty {
+            ContentUnavailableView(
+                "Your Music Library Is Empty",
+                systemImage: "music.note.list",
+                description: Text("Add music or playlists in the Music app, then refresh your library.")
+            )
+        } else {
+            sectionContent
+        }
+    }
+
+    @ViewBuilder
+    private var sectionContent: some View {
+        switch library.section {
+        case .songs:
+            if library.filteredSongs.isEmpty {
+                noMatchesView
+            } else {
+                SongListView(
+                    songs: library.filteredSongs,
+                    queue: library.sortedSongs,
+                    currentSongState: currentSongState,
+                    isLoading: library.isLoading,
+                    onPlay: onPlay
+                )
+            }
+        case .artists:
+            if library.filteredArtists.isEmpty {
+                noMatchesView
+            } else {
+                List {
+                    ForEach(library.filteredArtists) { artist in
+                        NavigationLink(value: LibraryNavigationDestination.artist(artist.id)) {
+                            ArtistRow(artist: artist)
+                        }
+                    }
+
+                    loadingFooter
+                }
+                .listStyle(.plain)
+            }
+        case .albums:
+            if library.filteredAlbums.isEmpty {
+                noMatchesView
+            } else {
+                List {
+                    ForEach(library.filteredAlbums) { album in
+                        NavigationLink(value: LibraryNavigationDestination.album(album.id)) {
+                            AlbumRow(album: album)
+                        }
+                    }
+
+                    loadingFooter
+                }
+                .listStyle(.plain)
+            }
+        case .playlists:
+            if library.filteredPlaylists.isEmpty {
+                noMatchesView
+            } else {
+                List {
+                    ForEach(library.filteredPlaylists) { playlist in
+                        NavigationLink {
+                            PlaylistDetailView(
+                                playlist: playlist,
+                                currentSongState: currentSongState,
+                                onPlay: onPlay
+                            )
+                        } label: {
+                            PlaylistRow(playlist: playlist)
+                        }
+                    }
+
+                    loadingFooter
+                }
+                .listStyle(.plain)
+            }
+        }
+    }
+
+    private var noMatchesView: some View {
+        ContentUnavailableView(
+            "No Matching Items",
+            systemImage: "magnifyingglass",
+            description: Text("Try a different song, album, artist, or playlist.")
+        )
+    }
+
+    @ViewBuilder
+    private var loadingFooter: some View {
+        if library.isLoading {
+            HStack {
+                Spacer()
+                ProgressView()
+                Spacer()
+            }
+        }
+    }
+}

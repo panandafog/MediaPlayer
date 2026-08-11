@@ -1,0 +1,71 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+  pull_request:
+    branches:
+      - main
+      - dev
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform }}
+    runs-on: macos-26
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: iOS
+            destination: generic/platform=iOS
+            derived_data_directory: MediaPlayerDerivedData-iOS
+          - platform: macOS
+            destination: generic/platform=macOS
+            derived_data_directory: MediaPlayerDerivedData-macOS
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Build
+        run: |
+          xcodebuild \
+            -project MediaPlayer.xcodeproj \
+            -scheme MediaPlayer \
+            -configuration Debug \
+            -destination '${{ matrix.destination }}' \
+            -derivedDataPath "$RUNNER_TEMP/${{ matrix.derived_data_directory }}" \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+  test:
+    name: Test macOS
+    runs-on: macos-26
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Run unit tests
+        run: |
+          xcodebuild \
+            -project MediaPlayer.xcodeproj \
+            -scheme MediaPlayer \
+            -configuration Debug \
+            -destination 'platform=macOS' \
+            -derivedDataPath "$RUNNER_TEMP/MediaPlayerDerivedData-tests" \
+            CODE_SIGNING_ALLOWED=NO \
+            -only-testing:MediaPlayerTests \
+            test

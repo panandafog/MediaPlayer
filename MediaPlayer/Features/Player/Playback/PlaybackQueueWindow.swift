@@ -1,0 +1,35 @@
+//
+//  PlaybackQueueWindow.swift
+//  MediaPlayer
+//
+//
+
+enum PlaybackQueueWindow {
+    static let precedingItemLimit = 10
+    static let followingItemLimit = 50
+
+    static func items<Element>(
+        from items: [Element],
+        startingAt index: Int
+    ) -> [Element] {
+        guard items.indices.contains(index) else {
+            return []
+        }
+
+        let lowerBound = max(items.startIndex, index - precedingItemLimit)
+        let upperBound = min(items.endIndex, index + followingItemLimit + 1)
+
+        return Array(items[lowerBound..<upperBound])
+    }
+
+    static func itemsAfterCurrent<Element>(
+        in items: [Element],
+        currentIndex: Int?
+    ) -> [Element] {
+        guard let currentIndex, items.indices.contains(currentIndex) else {
+            return []
+        }
+
+        return Array(items.dropFirst(currentIndex + 1))
+    }
+}

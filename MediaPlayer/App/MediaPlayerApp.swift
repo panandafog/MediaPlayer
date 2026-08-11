@@ -1,0 +1,63 @@
+//
+//  MediaPlayerApp.swift
+//  MediaPlayer
+//
+//  Created by Andrey Pantyuhin on 31.05.2026.
+//
+
+import SwiftUI
+
+@main
+struct MediaPlayerApp: App {
+    @StateObject private var player = MusicPlayerViewModel()
+    @StateObject private var library = MusicLibraryViewModel()
+#if os(macOS)
+    @StateObject private var mainWindowNavigation = MainWindowNavigation()
+#endif
+
+    var body: some Scene {
+#if os(macOS)
+        Window("Media Player", id: MainWindowNavigation.windowID) {
+            ContentView(
+                player: player,
+                library: library,
+                mainWindowNavigation: mainWindowNavigation
+            )
+            .frame(
+                minWidth: AppLayout.mainWindowMinimumSize.width,
+                minHeight: AppLayout.mainWindowMinimumSize.height
+            )
+        }
+        .windowResizability(.contentMinSize)
+
+        Window("Player", id: PlayerWindow.id) {
+            PlayerWindow(
+                player: player,
+                library: library,
+                mainWindowNavigation: mainWindowNavigation
+            )
+            .windowFullScreenBehavior(.enabled)
+        }
+        .defaultSize(
+            width: PlayerWindow.idealSize.width,
+            height: PlayerWindow.idealSize.height
+        )
+        .windowResizability(.contentMinSize)
+        .windowStyle(.hiddenTitleBar)
+
+        Settings {
+            PlayerSettingsView()
+        }
+#else
+        WindowGroup {
+            ContentView(player: player, library: library)
+        }
+#endif
+    }
+}
+
+#if os(macOS)
+private enum AppLayout {
+    static let mainWindowMinimumSize = CGSize(width: 300, height: 300)
+}
+#endif
