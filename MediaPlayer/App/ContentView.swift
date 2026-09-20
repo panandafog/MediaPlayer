@@ -22,6 +22,11 @@ struct ContentView: View {
     @State private var navigationPath: [LibraryNavigationDestination] = []
     @State private var bottomAccessoryHeight: CGFloat = 0
     @State private var isShowingNowPlaying = false
+    @AppStorage(PlayerSettingsKey.smartArtistSeparatorCharacters)
+    private var smartArtistSeparatorCharacters =
+        SmartArtistGroupingSettings.defaultSeparatorCharacters
+    @AppStorage(PlayerSettingsKey.usesSmartArtistGrouping)
+    private var usesSmartArtistGrouping = false
 #if os(iOS)
     @AppStorage(PlayerSettingsKey.searchBarPosition) private var searchBarPosition =
         SearchBarPosition.top.rawValue
@@ -74,8 +79,7 @@ struct ContentView: View {
                 )
             }
         }
-        .contentMargins(.bottom, bottomAccessoryHeight, for: .scrollContent)
-        .contentMargins(.bottom, bottomAccessoryHeight, for: .scrollIndicators)
+        .environment(\.playerAccessoryHeight, bottomAccessoryHeight)
         .playerSearchable(
             text: $library.searchText,
             usesTopSearch: usesTopSearch
@@ -106,6 +110,7 @@ struct ContentView: View {
         }
 #endif
         .task {
+            updateSmartArtistGrouping()
             await loadLibraryAndRestorePlayback()
 #if os(macOS)
             openRequestedMainWindowDestination()
@@ -121,6 +126,14 @@ struct ContentView: View {
             } else {
                 player.savePlaybackPosition()
             }
+        }
+        .onChange(of: usesSmartArtistGrouping) {
+            navigationPath.removeAll()
+            updateSmartArtistGrouping()
+        }
+        .onChange(of: smartArtistSeparatorCharacters) {
+            navigationPath.removeAll()
+            updateSmartArtistGrouping()
         }
 #if os(macOS)
         .onChange(of: mainWindowNavigation.request) {
@@ -169,6 +182,13 @@ struct ContentView: View {
     private func loadLibraryAndRestorePlayback() async {
         await library.loadIfAuthorized()
         player.restorePlaybackIfNeeded(from: library.songs)
+    }
+
+    private func updateSmartArtistGrouping() {
+        library.configureSmartArtistGrouping(
+            isEnabled: usesSmartArtistGrouping,
+            separatorCharacters: smartArtistSeparatorCharacters
+        )
     }
 
     private func openNowPlaying() {

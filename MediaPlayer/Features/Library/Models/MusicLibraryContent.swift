@@ -12,13 +12,22 @@ nonisolated struct MusicLibraryContent: Sendable {
     let artists: [LibraryArtist]
     let albums: [LibraryAlbum]
 
-    static func build(from songs: [Song]) -> Self {
+    static func build(
+        from songs: [Song],
+        usesSmartArtistGrouping: Bool = false,
+        artistSeparatorCharacters: String =
+            SmartArtistGroupingSettings.defaultSeparatorCharacters
+    ) -> Self {
         let songsBySortOption = Dictionary(
             uniqueKeysWithValues: MusicLibrarySortOption.allCases.map { option in
                 (option, songs.sorted(by: option.areInIncreasingOrder))
             }
         )
-        let groups = MusicLibraryGrouping.groups(from: songs)
+        let groups = MusicLibraryGrouping.groups(
+            from: songs,
+            usesSmartArtistGrouping: usesSmartArtistGrouping,
+            artistSeparatorCharacters: artistSeparatorCharacters
+        )
 
         return Self(
             songsBySortOption: songsBySortOption,

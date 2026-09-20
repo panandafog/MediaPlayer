@@ -31,6 +31,7 @@ struct ArtistDetailView: View {
                     }
                 }
                 .listStyle(.plain)
+                .avoidsPlayerAccessory()
             }
         }
         .navigationTitle(artist.name)

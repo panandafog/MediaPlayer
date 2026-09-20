@@ -92,6 +92,7 @@ struct MusicLibraryView: View {
                     loadingFooter
                 }
                 .listStyle(.plain)
+                .avoidsPlayerAccessory()
             }
         case .albums:
             if library.filteredAlbums.isEmpty {
@@ -107,6 +108,7 @@ struct MusicLibraryView: View {
                     loadingFooter
                 }
                 .listStyle(.plain)
+                .avoidsPlayerAccessory()
             }
         case .playlists:
             if library.filteredPlaylists.isEmpty {
@@ -128,6 +130,7 @@ struct MusicLibraryView: View {
                     loadingFooter
                 }
                 .listStyle(.plain)
+                .avoidsPlayerAccessory()
             }
         }
     }

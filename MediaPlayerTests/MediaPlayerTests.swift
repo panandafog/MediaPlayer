@@ -70,7 +70,7 @@ struct MediaPlayerTests {
         #expect(Set(shuffledItems) == Set(items))
     }
 
-    @Test func persistsAppearanceSettingsAcrossLaunches() throws {
+    @Test func persistsPlayerSettingsAcrossLaunches() throws {
         let suiteName = "MediaPlayerTests.\(UUID().uuidString)"
         let firstLaunchDefaults = try #require(UserDefaults(suiteName: suiteName))
         defer {
@@ -82,6 +82,14 @@ struct MediaPlayerTests {
             forKey: PlayerSettingsKey.usesLiquidGlassInPlayerWindow
         )
         firstLaunchDefaults.set("bottom", forKey: PlayerSettingsKey.searchBarPosition)
+        firstLaunchDefaults.set(
+            true,
+            forKey: PlayerSettingsKey.usesSmartArtistGrouping
+        )
+        firstLaunchDefaults.set(
+            "|+",
+            forKey: PlayerSettingsKey.smartArtistSeparatorCharacters
+        )
 
         let nextLaunchDefaults = try #require(UserDefaults(suiteName: suiteName))
 
@@ -93,6 +101,92 @@ struct MediaPlayerTests {
         #expect(
             nextLaunchDefaults.string(forKey: PlayerSettingsKey.searchBarPosition)
                 == "bottom"
+        )
+        #expect(
+            nextLaunchDefaults.bool(forKey: PlayerSettingsKey.usesSmartArtistGrouping)
+        )
+        #expect(
+            nextLaunchDefaults.string(
+                forKey: PlayerSettingsKey.smartArtistSeparatorCharacters
+            ) == "|+"
+        )
+    }
+
+    @Test @MainActor func restoresLibraryBrowsingPreferences() throws {
+        let suiteName = "MediaPlayerTests.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer {
+            defaults.removePersistentDomain(forName: suiteName)
+        }
+
+        defaults.set(
+            MusicLibrarySortOption.artist.rawValue,
+            forKey: PlayerSettingsKey.librarySortOption
+        )
+        defaults.set(
+            MusicLibrarySection.albums.rawValue,
+            forKey: PlayerSettingsKey.librarySection
+        )
+
+        let restoredLibrary = MusicLibraryViewModel(defaults: defaults)
+
+        #expect(restoredLibrary.sortOption == .artist)
+        #expect(restoredLibrary.section == .albums)
+
+        restoredLibrary.sortOption = .album
+        restoredLibrary.section = .artists
+
+        let nextLaunchLibrary = MusicLibraryViewModel(defaults: defaults)
+
+        #expect(nextLaunchLibrary.sortOption == .album)
+        #expect(nextLaunchLibrary.section == .artists)
+    }
+
+    @Test func separatesCombinedArtistNamesUsingUnambiguousDelimiters() {
+        #expect(
+            CombinedArtistNameParser.names(from: "Boris Brejcha; Ginger")
+                == ["Boris Brejcha", "Ginger"]
+        )
+        #expect(
+            CombinedArtistNameParser.names(from: "Artist feat. Guest")
+                == ["Artist", "Guest"]
+        )
+        #expect(
+            CombinedArtistNameParser.names(from: "Artist / Guest x Third")
+                == ["Artist", "Guest", "Third"]
+        )
+        #expect(
+            CombinedArtistNameParser.names(
+                from: "Artist One,Artist Two & Artist Three/Artist Four"
+            ) == ["Artist One", "Artist Two", "Artist Three", "Artist Four"]
+        )
+    }
+
+    @Test func usesCustomArtistSeparatorCharactersLiterally() {
+        #expect(
+            CombinedArtistNameParser.names(
+                from: "Artist One|Artist Two+Artist Three",
+                separatorCharacters: "|+"
+            ) == ["Artist One", "Artist Two", "Artist Three"]
+        )
+        #expect(
+            CombinedArtistNameParser.names(
+                from: "Artist.One*Artist Two",
+                separatorCharacters: ".*"
+            ) == ["Artist", "One", "Artist Two"]
+        )
+        #expect(
+            CombinedArtistNameParser.names(
+                from: "Artist One; Artist Two",
+                separatorCharacters: "|"
+            ) == ["Artist One; Artist Two"]
+        )
+    }
+
+    @Test func normalizesCustomArtistSeparatorCharacters() {
+        #expect(
+            SmartArtistGroupingSettings.normalizedSeparatorCharacters(" , , & / ")
+                == ",&/"
         )
     }
 

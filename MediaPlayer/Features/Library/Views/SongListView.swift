@@ -48,5 +48,6 @@ struct SongListView: View {
             }
         }
         .listStyle(.plain)
+        .avoidsPlayerAccessory()
     }
 }

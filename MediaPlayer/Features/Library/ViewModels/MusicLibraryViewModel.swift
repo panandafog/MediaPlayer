@@ -25,26 +25,52 @@ final class MusicLibraryViewModel: ObservableObject {
             refreshFilteredContent(debounce: true)
         }
     }
-    @Published var sortOption: MusicLibrarySortOption = .title {
+    @Published var sortOption: MusicLibrarySortOption {
         didSet {
+            defaults.set(
+                sortOption.rawValue,
+                forKey: PlayerSettingsKey.librarySortOption
+            )
             refreshFilteredContent()
         }
     }
-    @Published var section: MusicLibrarySection = .songs
+    @Published var section: MusicLibrarySection {
+        didSet {
+            defaults.set(
+                section.rawValue,
+                forKey: PlayerSettingsKey.librarySection
+            )
+        }
+    }
 
     private let service: any MusicLibraryLoading
+    private let defaults: UserDefaults
     private var songsBySortOption: [MusicLibrarySortOption: [Song]] = [:]
     private var artists: [LibraryArtist] = []
     private var albums: [LibraryAlbum] = []
     private var filteringTask: Task<Void, Never>?
+    private var groupingTask: Task<Void, Never>?
     private var hasLoadedLibrary = false
+    private var smartArtistSeparatorCharacters =
+        SmartArtistGroupingSettings.defaultSeparatorCharacters
+    private var usesSmartArtistGrouping = false
     private let logger = Logger(
         subsystem: Bundle.main.bundleIdentifier ?? "PlayerApp",
         category: "MusicLibrary"
     )
 
-    init(service: any MusicLibraryLoading = MusicKitLibraryService()) {
+    init(
+        service: any MusicLibraryLoading = MusicKitLibraryService(),
+        defaults: UserDefaults = .standard
+    ) {
         self.service = service
+        self.defaults = defaults
+        sortOption = defaults.string(forKey: PlayerSettingsKey.librarySortOption)
+            .flatMap(MusicLibrarySortOption.init(rawValue:))
+            ?? .title
+        section = defaults.string(forKey: PlayerSettingsKey.librarySection)
+            .flatMap(MusicLibrarySection.init(rawValue:))
+            ?? .songs
     }
 
     var sortedSongs: [Song] {
@@ -56,7 +82,21 @@ final class MusicLibraryViewModel: ObservableObject {
     }
 
     func artist(containing song: Song) -> LibraryArtist? {
-        artists.first { artist in
+        if usesSmartArtistGrouping {
+            let preferredArtistNames = MusicLibraryGrouping.artistNames(
+                for: song,
+                usesSmartArtistGrouping: true,
+                artistSeparatorCharacters: smartArtistSeparatorCharacters
+            )
+
+            for artistName in preferredArtistNames {
+                if let artist = artists.first(where: { $0.name == artistName }) {
+                    return artist
+                }
+            }
+        }
+
+        return artists.first { artist in
             artist.songs.contains(where: { $0.id == song.id })
         }
     }
@@ -73,6 +113,52 @@ final class MusicLibraryViewModel: ObservableObject {
 
     func album(id: LibraryAlbum.ID) -> LibraryAlbum? {
         albums.first(where: { $0.id == id })
+    }
+
+    func configureSmartArtistGrouping(
+        isEnabled: Bool,
+        separatorCharacters: String
+    ) {
+        let normalizedSeparatorCharacters =
+            SmartArtistGroupingSettings
+            .normalizedSeparatorCharacters(separatorCharacters)
+        let wasEnabled = usesSmartArtistGrouping
+        let separatorsChanged = smartArtistSeparatorCharacters
+            != normalizedSeparatorCharacters
+
+        guard wasEnabled != isEnabled || separatorsChanged else {
+            return
+        }
+
+        usesSmartArtistGrouping = isEnabled
+        smartArtistSeparatorCharacters = normalizedSeparatorCharacters
+        guard hasLoadedLibrary else {
+            return
+        }
+
+        guard wasEnabled != isEnabled || isEnabled else {
+            return
+        }
+
+        groupingTask?.cancel()
+        let songs = songs
+        let playlists = playlists
+
+        groupingTask = Task { [weak self] in
+            let content = await Task.detached(priority: .userInitiated) {
+                MusicLibraryContent.build(
+                    from: songs,
+                    usesSmartArtistGrouping: isEnabled,
+                    artistSeparatorCharacters: normalizedSeparatorCharacters
+                )
+            }.value
+
+            guard !Task.isCancelled else {
+                return
+            }
+
+            self?.apply(content, songs: songs, playlists: playlists)
+        }
     }
 
     private func refreshFilteredContent(debounce: Bool = false) {
@@ -158,9 +244,24 @@ final class MusicLibraryViewModel: ObservableObject {
             async let loadedPlaylists = service.fetchPlaylists()
 
             let (songs, playlists) = try await (loadedSongs, loadedPlaylists)
-            let content = await Task.detached(priority: .userInitiated) {
-                MusicLibraryContent.build(from: songs)
-            }.value
+            var groupingPreference = usesSmartArtistGrouping
+            var separatorPreference = smartArtistSeparatorCharacters
+            var content = await buildLibraryContent(
+                from: songs,
+                usesSmartArtistGrouping: groupingPreference,
+                artistSeparatorCharacters: separatorPreference
+            )
+
+            while groupingPreference != usesSmartArtistGrouping
+                || separatorPreference != smartArtistSeparatorCharacters {
+                groupingPreference = usesSmartArtistGrouping
+                separatorPreference = smartArtistSeparatorCharacters
+                content = await buildLibraryContent(
+                    from: songs,
+                    usesSmartArtistGrouping: groupingPreference,
+                    artistSeparatorCharacters: separatorPreference
+                )
+            }
 
             apply(content, songs: songs, playlists: playlists)
             hasLoadedLibrary = true
@@ -196,5 +297,19 @@ final class MusicLibraryViewModel: ObservableObject {
         filteredArtists = content.artists
         filteredAlbums = content.albums
         filteredPlaylists = content.playlists
+    }
+
+    private func buildLibraryContent(
+        from songs: [Song],
+        usesSmartArtistGrouping: Bool,
+        artistSeparatorCharacters: String
+    ) async -> MusicLibraryContent {
+        await Task.detached(priority: .userInitiated) {
+            MusicLibraryContent.build(
+                from: songs,
+                usesSmartArtistGrouping: usesSmartArtistGrouping,
+                artistSeparatorCharacters: artistSeparatorCharacters
+            )
+        }.value
     }
 }
