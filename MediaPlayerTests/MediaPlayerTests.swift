@@ -70,13 +70,6 @@ struct MediaPlayerTests {
         #expect(Set(shuffledItems) == Set(items))
     }
 
-    @Test func definesSixEqualizerBandsWithUniqueStorageKeys() {
-        let bands = EqualizerBand.allCases
-
-        #expect(bands.map(\.title) == ["60 Hz", "150 Hz", "400 Hz", "1 kHz", "2.4 kHz", "15 kHz"])
-        #expect(Set(bands.map(\.defaultsKey)).count == bands.count)
-    }
-
     @Test func persistsAppearanceSettingsAcrossLaunches() throws {
         let suiteName = "MediaPlayerTests.\(UUID().uuidString)"
         let firstLaunchDefaults = try #require(UserDefaults(suiteName: suiteName))

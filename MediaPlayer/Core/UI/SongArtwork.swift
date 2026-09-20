@@ -4,6 +4,12 @@
 //
 //
 
+#if canImport(AppKit)
+import AppKit
+#else
+import UIKit
+#endif
+import Foundation
 import MusicKit
 import SwiftUI
 
@@ -49,23 +55,31 @@ private enum Layout {
 
 private struct HighResolutionArtworkImage: View {
     @Environment(\.displayScale) private var displayScale
+    @State private var loadedImage: PlatformArtworkImage?
+    @State private var loadedImageURL: URL?
 
     let artwork: Artwork
     let size: CGFloat
 
     var body: some View {
-        AsyncImage(
-            url: artwork.url(width: pixelDimension, height: pixelDimension),
-            scale: displayScale
-        ) { image in
-            image
+        Group {
+            if let loadedImage, loadedImageURL == requestURL {
+                swiftUIImage(from: loadedImage)
                 .resizable()
                 .scaledToFill()
-        } placeholder: {
-            ArtworkImage(artwork, width: size, height: size)
+            } else {
+                ArtworkImage(artwork, width: size, height: size)
+            }
         }
         .frame(width: size, height: size)
         .clipped()
+        .task(id: requestURL) {
+            await loadHighResolutionImage()
+        }
+    }
+
+    private var requestURL: URL? {
+        artwork.url(width: pixelDimension, height: pixelDimension)
     }
 
     private var pixelDimension: Int {
@@ -78,4 +92,74 @@ private struct HighResolutionArtworkImage: View {
 
         return min(requestedDimension, maximumDimension)
     }
+
+    @MainActor
+    private func loadHighResolutionImage() async {
+        loadedImage = nil
+        loadedImageURL = nil
+
+        guard let requestURL else {
+            return
+        }
+
+        for attempt in 0..<Loading.maximumAttemptCount {
+            do {
+                var request = URLRequest(
+                    url: requestURL,
+                    cachePolicy: attempt == 0
+                        ? .useProtocolCachePolicy
+                        : .reloadRevalidatingCacheData,
+                    timeoutInterval: Loading.requestTimeout
+                )
+                request.allowsConstrainedNetworkAccess = true
+
+                let (data, response) = try await URLSession.shared.data(for: request)
+                try Task.checkCancellation()
+
+                guard
+                    let response = response as? HTTPURLResponse,
+                    (200..<300).contains(response.statusCode),
+                    let image = PlatformArtworkImage(data: data)
+                else {
+                    throw ArtworkLoadingError.invalidResponse
+                }
+
+                loadedImage = image
+                loadedImageURL = requestURL
+                return
+            } catch is CancellationError {
+                return
+            } catch {
+                guard attempt + 1 < Loading.maximumAttemptCount else {
+                    return
+                }
+
+                try? await Task.sleep(for: Loading.retryDelay)
+            }
+        }
+    }
+
+    private func swiftUIImage(from image: PlatformArtworkImage) -> Image {
+#if canImport(AppKit)
+        Image(nsImage: image)
+#else
+        Image(uiImage: image)
+#endif
+    }
+}
+
+#if canImport(AppKit)
+private typealias PlatformArtworkImage = NSImage
+#else
+private typealias PlatformArtworkImage = UIImage
+#endif
+
+private enum ArtworkLoadingError: Error {
+    case invalidResponse
+}
+
+private enum Loading {
+    static let maximumAttemptCount = 3
+    static let requestTimeout: TimeInterval = 15
+    static let retryDelay = Duration.milliseconds(500)
 }

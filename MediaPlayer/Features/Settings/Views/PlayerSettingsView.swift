@@ -39,23 +39,29 @@ struct PlayerSettingsView: View {
         Form {
             Section("Appearance") {
 #if os(iOS)
-                Picker("Search Position", selection: $searchBarPosition) {
-                    ForEach(SearchBarPosition.allCases) { position in
-                        Text(position.title)
-                            .tag(position.rawValue)
+                VStack(alignment: .leading, spacing: Layout.settingSpacing) {
+                    Text("Search Bar Position")
+                        .font(.headline)
+
+                    Picker("Search Bar Position", selection: $searchBarPosition) {
+                        ForEach(SearchBarPosition.allCases) { position in
+                            Text(position.title)
+                                .tag(position.rawValue)
+                        }
                     }
+                    .labelsHidden()
+                    .pickerStyle(.segmented)
+
+                    Text("Choose where the search bar appears in the music library.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
-                .pickerStyle(.segmented)
 #elseif os(macOS)
                 Toggle(
                     "Use Liquid Glass in Player Window",
                     isOn: $usesLiquidGlassInPlayerWindow
                 )
 #endif
-            }
-
-            Section("Equalizer") {
-                EqualizerSettingsView()
             }
         }
         .formStyle(.grouped)
@@ -64,8 +70,9 @@ struct PlayerSettingsView: View {
 
 private enum Layout {
     static let padding: CGFloat = 20
+    static let settingSpacing: CGFloat = 8
     static let width: CGFloat = 540
-    static let height: CGFloat = 600
+    static let height: CGFloat = 200
 }
 
 #Preview {
