@@ -6,11 +6,44 @@
 //
 
 import Foundation
+import CoreGraphics
 import MusicKit
 import Testing
 @testable import PlayerApp
 
 struct MediaPlayerTests {
+
+    @Test func findsArtworkAccentInDarkCover() {
+        let size = 48
+        var pixels = [UInt8](repeating: 0, count: size * size * 4)
+        for offset in stride(from: 0, to: pixels.count, by: 4) {
+            pixels[offset + 3] = 255
+        }
+        for row in 16..<32 {
+            for column in 16..<32 {
+                let offset = (row * size + column) * 4
+                pixels[offset] = 220
+                pixels[offset + 1] = 35
+                pixels[offset + 2] = 45
+            }
+        }
+
+        let accent = ArtworkAccentColor.fromPixels(pixels)
+        #expect(accent != nil)
+        #expect((accent?.hue ?? 0.5) < 0.08 || (accent?.hue ?? 0.5) > 0.92)
+        #expect((accent?.brightness ?? 0) >= 0.58)
+    }
+
+    @Test func ignoresGrayscaleArtworkAsAccent() {
+        let pixels = Array(repeating: [UInt8(180), 180, 180, 255], count: 48 * 48)
+            .flatMap { $0 }
+        #expect(ArtworkAccentColor.fromPixels(pixels) == nil)
+        #expect(
+            ArtworkAccentColor.fromBackgroundColor(
+                CGColor(srgbRed: 0.5, green: 0.5, blue: 0.5, alpha: 1)
+            ) == nil
+        )
+    }
 
     @Test func formatsTrackDuration() {
         #expect(TrackDurationFormatter.string(from: 0) == "0:00")

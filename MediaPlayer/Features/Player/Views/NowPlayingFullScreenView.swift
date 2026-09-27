@@ -30,6 +30,7 @@ struct NowPlayingFullScreenView: View {
                     }
                 }
         }
+        .tint(nil)
     }
 }
 #endif

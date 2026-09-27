@@ -82,6 +82,7 @@ struct NowPlayingBar: View {
                     )
                 }
             }
+            .tint(.secondary)
         }
         .padding(Layout.contentPadding)
         .background {

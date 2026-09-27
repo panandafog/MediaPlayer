@@ -6,8 +6,12 @@
 import SwiftUI
 
 struct PlayerSettingsView: View {
+    @EnvironmentObject private var artworkAccentTheme: ArtworkAccentTheme
+    @State private var isSeparatorFieldFocused = false
     @AppStorage(PlayerSettingsKey.resumesPlaybackOnLaunch)
     private var resumesPlaybackOnLaunch = false
+    @AppStorage(PlayerSettingsKey.usesArtworkAccentColor)
+    private var usesArtworkAccentColor = true
     @AppStorage(PlayerSettingsKey.smartArtistSeparatorCharacters)
     private var smartArtistSeparatorCharacters =
         SmartArtistGroupingSettings.defaultSeparatorCharacters
@@ -25,6 +29,7 @@ struct PlayerSettingsView: View {
     private var songListShowsInfoButton = true
 #if os(iOS)
     @Environment(\.dismiss) private var dismiss
+    @FocusState private var isIOSSeparatorFieldFocused: Bool
     @AppStorage(PlayerSettingsKey.searchBarPosition) private var searchBarPosition =
         SearchBarPosition.top.rawValue
 #elseif os(macOS)
@@ -69,6 +74,17 @@ struct PlayerSettingsView: View {
             }
 
             Section("Appearance") {
+                Toggle(
+                    "Match App Accent to Artwork",
+                    isOn: $usesArtworkAccentColor
+                )
+                Text(
+                    "Uses the current track’s artwork for accent colors throughout the app. "
+                        + "In the full player, only the progress bar and Play/Pause button are colored."
+                )
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+
 #if os(iOS)
                 VStack(alignment: .leading, spacing: Layout.settingSpacing) {
                     Text("Search Bar Position")
@@ -103,19 +119,7 @@ struct PlayerSettingsView: View {
                         Text("Separator Characters")
                             .font(.headline)
 
-                        TextField(
-                            "Characters",
-                            text: Binding(
-                                get: { smartArtistSeparatorCharacters },
-                                set: { newValue in
-                                    smartArtistSeparatorCharacters =
-                                        SmartArtistGroupingSettings
-                                        .normalizedSeparatorCharacters(newValue)
-                                }
-                            )
-                        )
-                        .textFieldStyle(.roundedBorder)
-                        .font(.body.monospaced())
+                        separatorCharactersField
 
                         Text(
                             "Each character is used literally. "
@@ -204,6 +208,51 @@ struct PlayerSettingsView: View {
         .formStyle(.grouped)
     }
 
+    private var separatorCharactersField: some View {
+        Group {
+#if os(macOS)
+            MacAccentTextField(
+                placeholder: "Characters",
+                text: separatorCharactersBinding,
+                accentColor: artworkAccentTheme.color,
+                isFocused: $isSeparatorFieldFocused
+            )
+#else
+            TextField("Characters", text: separatorCharactersBinding)
+                .textFieldStyle(.plain)
+                .tint(artworkAccentTheme.color ?? .accentColor)
+                .focused($isIOSSeparatorFieldFocused)
+                .onChange(of: isIOSSeparatorFieldFocused, initial: true) {
+                    isSeparatorFieldFocused = isIOSSeparatorFieldFocused
+                }
+#endif
+        }
+        .font(.body.monospaced())
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 8)
+        .frame(height: 28)
+        .background(.background, in: RoundedRectangle(cornerRadius: 6))
+        .overlay {
+            RoundedRectangle(cornerRadius: 6)
+                .strokeBorder(
+                    isSeparatorFieldFocused
+                        ? (artworkAccentTheme.color ?? .accentColor)
+                        : Color.secondary.opacity(0.4),
+                    lineWidth: isSeparatorFieldFocused ? 2 : 1
+                )
+        }
+    }
+
+    private var separatorCharactersBinding: Binding<String> {
+        Binding(
+            get: { smartArtistSeparatorCharacters },
+            set: { newValue in
+                smartArtistSeparatorCharacters =
+                    SmartArtistGroupingSettings.normalizedSeparatorCharacters(newValue)
+            }
+        )
+    }
+
     private var orderedSongListFields: [SongListField] {
         SongListField.order(from: storedSongListFieldOrder)
     }
@@ -248,4 +297,5 @@ private enum Layout {
 
 #Preview {
     PlayerSettingsView()
+        .environmentObject(ArtworkAccentTheme())
 }

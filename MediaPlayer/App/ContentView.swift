@@ -394,7 +394,9 @@ private extension View {
         library: MusicLibraryViewModel(),
         mainWindowNavigation: MainWindowNavigation()
     )
+    .environmentObject(ArtworkAccentTheme())
 #else
     ContentView(player: MusicPlayerViewModel(), library: MusicLibraryViewModel())
+        .environmentObject(ArtworkAccentTheme())
 #endif
 }

@@ -9,6 +9,7 @@ import SwiftUI
 
 struct NowPlayingView: View {
     @Environment(\.colorScheme) private var colorScheme
+    @EnvironmentObject private var artworkAccentTheme: ArtworkAccentTheme
     @ObservedObject var player: MusicPlayerViewModel
     let onOpenArtist: ((Song) -> Void)?
     let onOpenAlbum: ((Song) -> Void)?
@@ -33,6 +34,7 @@ struct NowPlayingView: View {
                     isPlaying: player.isPlaying,
                     playbackMode: player.playbackMode,
                     playbackTime: player.playbackTime,
+                    accentColor: artworkAccentTheme.color,
                     onPrevious: {
                         Task {
                             await player.skipToPreviousSong()
@@ -130,6 +132,7 @@ private struct NowPlayingContent: View {
     let isPlaying: Bool
     let playbackMode: PlaybackMode
     @ObservedObject var playbackTime: PlaybackTimeState
+    let accentColor: Color?
     let onPrevious: () -> Void
     let onTogglePlayback: () -> Void
     let onNext: () -> Void
@@ -265,6 +268,7 @@ private struct NowPlayingContent: View {
                 duration: song.duration,
                 onSeek: onSeek
             )
+            .tint(accentColor ?? .accentColor)
 
             transportControls(spacing: metrics.controlSpacing)
 
@@ -295,6 +299,7 @@ private struct NowPlayingContent: View {
                     duration: song.duration,
                     onSeek: onSeek
                 )
+                .tint(accentColor ?? .accentColor)
 
                 transportControls(spacing: NowPlayingContentMetrics.compactControlSpacing)
             } else {
@@ -303,6 +308,7 @@ private struct NowPlayingContent: View {
                     systemImage: isPlaying ? "pause.fill" : "play.fill",
                     isPrimary: true,
                     size: PlayerControlMetrics.regularButtonSize,
+                    accentColor: accentColor,
                     action: onTogglePlayback
                 )
             }
@@ -320,6 +326,7 @@ private struct NowPlayingContent: View {
                 title: isPlaying ? "Pause" : "Play",
                 systemImage: isPlaying ? "pause.fill" : "play.fill",
                 isPrimary: true,
+                accentColor: accentColor,
                 action: onTogglePlayback
             )
             LargePlayerControlButton(
@@ -584,6 +591,7 @@ private struct LargePlayerControlButton: View {
     let systemImage: String
     var isPrimary = false
     var size: CGFloat? = nil
+    var accentColor: Color? = nil
     let action: () -> Void
 
     @ViewBuilder
@@ -591,6 +599,7 @@ private struct LargePlayerControlButton: View {
         if isPrimary {
             button
                 .buttonStyle(.glassProminent)
+                .tint(accentColor ?? .accentColor)
         } else {
             button
                 .buttonStyle(.glass)
