@@ -19,6 +19,7 @@ struct NowPlayingBar: View {
     let onSelectPlaybackMode: (PlaybackMode) -> Void
     let onShowQueue: () -> Void
     let onOpenDetails: () -> Void
+    let onOpenTrackInfo: (Song) -> Void
     let onOpenArtist: (Song) -> Void
     let onOpenAlbum: (Song) -> Void
     @State private var availableWidth: CGFloat = 0
@@ -50,6 +51,11 @@ struct NowPlayingBar: View {
 
 #if os(macOS)
                 if layout.showsPlayerWindow {
+                    PlayerControlButton(
+                        title: "Track Info",
+                        systemImage: "info.circle",
+                        action: { onOpenTrackInfo(song) }
+                    )
                     PlayerControlButton(
                         title: "Open Player",
                         systemImage: "macwindow",
@@ -127,9 +133,21 @@ struct NowPlayingBar: View {
             SongArtwork(artwork: song.artwork, size: Layout.artworkSize)
 
             VStack(alignment: .leading, spacing: Layout.metadataSpacing) {
+#if os(macOS)
+                Button {
+                    onOpenTrackInfo(song)
+                } label: {
+                    Text(song.title)
+                        .font(.headline)
+                        .lineLimit(1)
+                }
+                .buttonStyle(.plain)
+                .help("Track Info")
+#else
                 Text(song.title)
                     .font(.headline)
                     .lineLimit(1)
+#endif
 #if os(macOS)
                 Button {
                     onOpenArtist(song)

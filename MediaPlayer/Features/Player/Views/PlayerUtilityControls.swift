@@ -157,19 +157,16 @@ private struct PlaybackModeMenu: View {
                 onSelect: onSelect
             )
         } label: {
-            Button(
-                action: {},
-                label: {
-                    Image(systemName: playbackMode.systemImage)
-                        .frame(
-                            width: PlayerControlMetrics.regularButtonSize,
-                            height: PlayerControlMetrics.regularButtonSize
-                        )
-                }
-            )
-            .buttonStyle(.glass)
-            .buttonBorderShape(.circle)
+            Image(systemName: playbackMode.systemImage)
+                .font(.title3)
+                .frame(
+                    width: PlayerControlMetrics.regularButtonSize,
+                    height: PlayerControlMetrics.regularButtonSize
+                )
         }
+        .menuIndicator(.hidden)
+        .buttonStyle(.glass)
+        .buttonBorderShape(.circle)
         .accessibilityLabel("Listening Mode: \(playbackMode.title)")
     }
 }

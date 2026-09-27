@@ -56,14 +56,16 @@ private enum Layout {
 private struct HighResolutionArtworkImage: View {
     @Environment(\.displayScale) private var displayScale
     @State private var loadedImage: PlatformArtworkImage?
-    @State private var loadedImageURL: URL?
+    @State private var loadedArtworkIdentifier: URL?
+    @State private var loadedPixelDimension = 0
 
     let artwork: Artwork
     let size: CGFloat
 
     var body: some View {
         Group {
-            if let loadedImage, loadedImageURL == requestURL {
+            if let loadedImage,
+               loadedArtworkIdentifier == artworkIdentifier {
                 swiftUIImage(from: loadedImage)
                 .resizable()
                 .scaledToFill()
@@ -82,6 +84,10 @@ private struct HighResolutionArtworkImage: View {
         artwork.url(width: pixelDimension, height: pixelDimension)
     }
 
+    private var artworkIdentifier: URL? {
+        artwork.url(width: 1, height: 1)
+    }
+
     private var pixelDimension: Int {
         let requestedDimension = max(Int((size * max(displayScale, 1)).rounded(.up)), 1)
         let maximumDimension = min(artwork.maximumWidth, artwork.maximumHeight)
@@ -95,10 +101,24 @@ private struct HighResolutionArtworkImage: View {
 
     @MainActor
     private func loadHighResolutionImage() async {
-        loadedImage = nil
-        loadedImageURL = nil
+        if loadedArtworkIdentifier != artworkIdentifier {
+            loadedImage = nil
+            loadedArtworkIdentifier = nil
+            loadedPixelDimension = 0
+        }
 
         guard let requestURL else {
+            return
+        }
+
+        guard loadedPixelDimension < pixelDimension else {
+            return
+        }
+
+        do {
+            try await Task.sleep(for: Loading.resizeDebounceDelay)
+            try Task.checkCancellation()
+        } catch {
             return
         }
 
@@ -125,7 +145,8 @@ private struct HighResolutionArtworkImage: View {
                 }
 
                 loadedImage = image
-                loadedImageURL = requestURL
+                loadedArtworkIdentifier = artworkIdentifier
+                loadedPixelDimension = pixelDimension
                 return
             } catch is CancellationError {
                 return
@@ -161,5 +182,6 @@ private enum ArtworkLoadingError: Error {
 private enum Loading {
     static let maximumAttemptCount = 3
     static let requestTimeout: TimeInterval = 15
+    static let resizeDebounceDelay = Duration.milliseconds(150)
     static let retryDelay = Duration.milliseconds(500)
 }

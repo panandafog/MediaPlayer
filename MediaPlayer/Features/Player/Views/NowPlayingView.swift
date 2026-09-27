@@ -12,6 +12,7 @@ struct NowPlayingView: View {
     let onOpenArtist: ((Song) -> Void)?
     let onOpenAlbum: ((Song) -> Void)?
     @State private var isShowingQueue = false
+    @State private var detailsSong: Song?
 
     init(
         player: MusicPlayerViewModel,
@@ -64,6 +65,20 @@ struct NowPlayingView: View {
         }
         .sheet(isPresented: $isShowingQueue) {
             PlaybackQueueView(player: player)
+        }
+        .sheet(item: $detailsSong) { song in
+            TrackDetailsView(song: song)
+        }
+        .toolbar {
+            if let song = player.currentSong {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        detailsSong = song
+                    } label: {
+                        Label("Track Info", systemImage: "info.circle")
+                    }
+                }
+            }
         }
     }
 }

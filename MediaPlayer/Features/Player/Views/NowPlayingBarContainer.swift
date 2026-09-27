@@ -13,6 +13,7 @@ struct NowPlayingBarContainer: View {
     let onOpenArtist: (Song) -> Void
     let onOpenAlbum: (Song) -> Void
     @State private var isShowingQueue = false
+    @State private var detailsSong: Song?
 
     var body: some View {
         Group {
@@ -43,6 +44,7 @@ struct NowPlayingBarContainer: View {
                         isShowingQueue = true
                     },
                     onOpenDetails: onOpenDetails,
+                    onOpenTrackInfo: { detailsSong = $0 },
                     onOpenArtist: onOpenArtist,
                     onOpenAlbum: onOpenAlbum
                 )
@@ -50,6 +52,9 @@ struct NowPlayingBarContainer: View {
         }
         .sheet(isPresented: $isShowingQueue) {
             PlaybackQueueView(player: player)
+        }
+        .sheet(item: $detailsSong) { song in
+            TrackDetailsView(song: song)
         }
         .alert(
             "Error",
