@@ -93,8 +93,10 @@ struct TrackDetailsView: View {
             row("Movement number", details.song.movementNumber.map { String($0) })
             row("Movement count", details.song.movementCount.map { String($0) })
 #if os(iOS)
-            row("Start time", details.song.startTime.map { TrackDurationFormatter.string(from: $0) })
-            row("End time", details.song.endTime.map { TrackDurationFormatter.string(from: $0) })
+            if #available(iOS 26.4, *) {
+                row("Start time", details.song.startTime.map { TrackDurationFormatter.string(from: $0) })
+                row("End time", details.song.endTime.map { TrackDurationFormatter.string(from: $0) })
+            }
 #endif
         }
     }
