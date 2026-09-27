@@ -216,7 +216,7 @@ nonisolated struct ArtworkAccentColor: Equatable, Sendable {
             + 0.0722 * linear(blue)
     }
 
-    private var rgb: (Double, Double, Double) {
+    var rgb: (Double, Double, Double) {
         let sector = hue * 6
         let fraction = sector - floor(sector)
         let low = brightness * (1 - saturation)

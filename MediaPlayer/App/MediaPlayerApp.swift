@@ -15,6 +15,7 @@ struct MediaPlayerApp: App {
     @StateObject private var artworkAccentTheme = ArtworkAccentTheme()
 #if os(macOS)
     @StateObject private var mainWindowNavigation = MainWindowNavigation()
+    @StateObject private var artworkDockIcon = ArtworkDockIconController()
 #endif
 
     var body: some Scene {
@@ -31,6 +32,7 @@ struct MediaPlayerApp: App {
                     minHeight: AppLayout.mainWindowMinimumSize.height
                 )
             }
+            .modifier(ArtworkDockIconObserver(player: player, controller: artworkDockIcon))
         }
         .windowResizability(.contentMinSize)
 
@@ -47,6 +49,7 @@ struct MediaPlayerApp: App {
                 )
                 .windowFullScreenBehavior(.enabled)
             }
+            .modifier(ArtworkDockIconObserver(player: player, controller: artworkDockIcon))
         }
         .defaultSize(
             width: PlayerWindow.idealSize.width,
@@ -59,6 +62,7 @@ struct MediaPlayerApp: App {
             AppAccentRoot(player: player, theme: artworkAccentTheme) {
                 PlayerSettingsView()
             }
+            .modifier(ArtworkDockIconObserver(player: player, controller: artworkDockIcon))
         }
 #else
         WindowGroup {
@@ -111,6 +115,30 @@ private struct AppAccentRoot<Content: View>: View {
 }
 
 #if os(macOS)
+private struct ArtworkDockIconObserver: ViewModifier {
+    @ObservedObject var player: MusicPlayerViewModel
+    @AppStorage(PlayerSettingsKey.usesArtworkDockIcon)
+    private var usesArtworkDockIcon = true
+
+    let controller: ArtworkDockIconController
+
+    func body(content: Content) -> some View {
+        content
+            .onChange(of: player.currentSong?.artwork, initial: true) {
+                controller.update(
+                    for: player.currentSong?.artwork,
+                    enabled: usesArtworkDockIcon
+                )
+            }
+            .onChange(of: usesArtworkDockIcon) {
+                controller.update(
+                    for: player.currentSong?.artwork,
+                    enabled: usesArtworkDockIcon
+                )
+            }
+    }
+}
+
 private enum AppLayout {
     static let mainWindowMinimumSize = CGSize(width: 300, height: 300)
 }

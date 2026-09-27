@@ -35,6 +35,8 @@ struct PlayerSettingsView: View {
 #elseif os(macOS)
     @AppStorage(PlayerSettingsKey.usesLiquidGlassInPlayerWindow)
     private var usesLiquidGlassInPlayerWindow = true
+    @AppStorage(PlayerSettingsKey.usesArtworkDockIcon)
+    private var usesArtworkDockIcon = true
 #endif
 
     var body: some View {
@@ -104,6 +106,17 @@ struct PlayerSettingsView: View {
                         .foregroundStyle(.secondary)
                 }
 #elseif os(macOS)
+                Toggle(
+                    "Match Dock Icon to Artwork",
+                    isOn: $usesArtworkDockIcon
+                )
+                Text(
+                    "Changes the icon in the Dock while the app is running. "
+                        + "The icon in Finder and Launchpad stays unchanged."
+                )
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+
                 Toggle(
                     "Use Liquid Glass in Player Window",
                     isOn: $usesLiquidGlassInPlayerWindow

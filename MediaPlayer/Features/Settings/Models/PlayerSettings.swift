@@ -20,6 +20,7 @@ enum PlayerSettingsKey {
     static let usesLiquidGlassInPlayerWindow = "settings.usesLiquidGlassInPlayerWindow"
     static let resumesPlaybackOnLaunch = "settings.resumesPlaybackOnLaunch"
     static let usesArtworkAccentColor = "settings.usesArtworkAccentColor"
+    static let usesArtworkDockIcon = "settings.usesArtworkDockIcon"
 }
 
 nonisolated enum SmartArtistGroupingSettings {
