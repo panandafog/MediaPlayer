@@ -8,6 +8,11 @@ import Foundation
 enum PlayerSettingsKey {
     static let librarySection = "settings.library.section"
     static let librarySortOption = "settings.library.sortOption"
+    static let songListFieldOrder = "settings.library.songListFieldOrder"
+    static let songListEnabledFields = "settings.library.songListEnabledFields"
+    static let songListShowsAlbum = "settings.library.songListShowsAlbum"
+    static let songListShowsDuration = "settings.library.songListShowsDuration"
+    static let songListShowsInfoButton = "settings.library.songListShowsInfoButton"
     static let searchBarPosition = "settings.searchBarPosition"
     static let smartArtistSeparatorCharacters =
         "settings.smartArtistSeparatorCharacters"

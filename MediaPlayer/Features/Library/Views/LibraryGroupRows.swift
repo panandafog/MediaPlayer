@@ -24,8 +24,24 @@ struct ArtistRow: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
+
+                if !supplementaryDetails.isEmpty {
+                    Text(supplementaryDetails)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
             }
         }
+    }
+
+    private var supplementaryDetails: String {
+        [
+            artist.primaryGenreName,
+            artist.totalDuration.map { LibraryDurationFormatter.string(from: $0) }
+        ]
+        .compactMap { $0 }
+        .joined(separator: " · ")
     }
 }
 
@@ -43,11 +59,23 @@ struct AlbumRow: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
-                Text(LibraryItemCountFormatter.tracks(album.songs.count))
+                Text(supplementaryDetails)
                     .font(.caption)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
         }
+    }
+
+    private var supplementaryDetails: String {
+        [
+            album.releaseYear.map { String($0) },
+            LibraryItemCountFormatter.tracks(album.songs.count),
+            album.totalDuration.map { LibraryDurationFormatter.string(from: $0) },
+            album.primaryGenreName
+        ]
+        .compactMap { $0 }
+        .joined(separator: " · ")
     }
 }
 

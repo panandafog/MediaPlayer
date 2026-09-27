@@ -11,6 +11,16 @@ struct PlayerSettingsView: View {
         SmartArtistGroupingSettings.defaultSeparatorCharacters
     @AppStorage(PlayerSettingsKey.usesSmartArtistGrouping)
     private var usesSmartArtistGrouping = false
+    @AppStorage(PlayerSettingsKey.songListFieldOrder)
+    private var storedSongListFieldOrder = "releaseYear,genre,playCount,dateAdded,lastPlayed"
+    @AppStorage(PlayerSettingsKey.songListEnabledFields)
+    private var storedEnabledSongListFields = "releaseYear,genre"
+    @AppStorage(PlayerSettingsKey.songListShowsAlbum)
+    private var songListShowsAlbum = true
+    @AppStorage(PlayerSettingsKey.songListShowsDuration)
+    private var songListShowsDuration = true
+    @AppStorage(PlayerSettingsKey.songListShowsInfoButton)
+    private var songListShowsInfoButton = true
 #if os(iOS)
     @Environment(\.dismiss) private var dismiss
     @AppStorage(PlayerSettingsKey.searchBarPosition) private var searchBarPosition =
@@ -116,16 +126,108 @@ struct PlayerSettingsView: View {
                 .font(.footnote)
                 .foregroundStyle(.secondary)
             }
+
+            Section {
+                Toggle("Album", isOn: $songListShowsAlbum)
+                Toggle("Duration", isOn: $songListShowsDuration)
+                Toggle("Track Info Button", isOn: $songListShowsInfoButton)
+
+                Text("Additional Metadata")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.secondary)
+
+                ForEach(orderedSongListFields) { field in
+                    HStack(spacing: Layout.fieldControlSpacing) {
+                        Text(field.title)
+                        Spacer()
+
+                        Button {
+                            moveSongListField(field, by: -1)
+                        } label: {
+                            Image(systemName: "arrow.up")
+                        }
+                        .disabled(orderedSongListFields.first == field)
+                        .accessibilityLabel("Move \(field.title) earlier")
+
+                        Button {
+                            moveSongListField(field, by: 1)
+                        } label: {
+                            Image(systemName: "arrow.down")
+                        }
+                        .disabled(orderedSongListFields.last == field)
+                        .accessibilityLabel("Move \(field.title) later")
+
+                        Toggle(field.title, isOn: songListFieldBinding(for: field))
+                            .labelsHidden()
+                    }
+                    .buttonStyle(.borderless)
+                }
+
+                Button("Reset Track List Fields") {
+                    storedSongListFieldOrder = SongListField.storageValue(
+                        SongListField.defaultOrder
+                    )
+                    storedEnabledSongListFields = SongListField.storageValue(
+                        SongListField.defaultEnabled
+                    )
+                    songListShowsAlbum = true
+                    songListShowsDuration = true
+                    songListShowsInfoButton = true
+                }
+            } header: {
+                Text("Track List Fields")
+            } footer: {
+                Text(
+                    "Album, duration, and the info button can be hidden independently. "
+                        + "Other enabled fields appear below the title on narrow lists "
+                        + "and as columns on wide lists. Track info remains available "
+                        + "from the row’s context menu."
+                )
+            }
         }
         .formStyle(.grouped)
+    }
+
+    private var orderedSongListFields: [SongListField] {
+        SongListField.order(from: storedSongListFieldOrder)
+    }
+
+    private func songListFieldBinding(for field: SongListField) -> Binding<Bool> {
+        Binding(
+            get: {
+                SongListField.enabled(from: storedEnabledSongListFields).contains(field)
+            },
+            set: { isEnabled in
+                var enabled = SongListField.enabled(from: storedEnabledSongListFields)
+                if isEnabled {
+                    enabled.insert(field)
+                } else {
+                    enabled.remove(field)
+                }
+                storedEnabledSongListFields = SongListField.storageValue(
+                    orderedSongListFields.filter { enabled.contains($0) }
+                )
+            }
+        )
+    }
+
+    private func moveSongListField(_ field: SongListField, by offset: Int) {
+        var order = orderedSongListFields
+        guard let index = order.firstIndex(of: field),
+              order.indices.contains(index + offset) else {
+            return
+        }
+        order.swapAt(index, index + offset)
+        storedSongListFieldOrder = SongListField.storageValue(order)
     }
 }
 
 private enum Layout {
     static let padding: CGFloat = 20
     static let settingSpacing: CGFloat = 8
+    static let fieldControlSpacing: CGFloat = 12
     static let width: CGFloat = 540
-    static let height: CGFloat = 460
+    static let height: CGFloat = 620
 }
 
 #Preview {

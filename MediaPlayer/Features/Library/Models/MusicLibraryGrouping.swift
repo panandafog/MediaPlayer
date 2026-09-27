@@ -11,6 +11,8 @@ nonisolated struct LibraryArtist: Identifiable, Sendable {
     let name: String
     let songs: [Song]
     let albums: [LibraryAlbum]
+    let primaryGenreName: String?
+    let totalDuration: TimeInterval?
 
     var id: String {
         name
@@ -32,6 +34,9 @@ nonisolated struct LibraryAlbum: Identifiable, Sendable {
     let artistName: String
     let artwork: Artwork?
     let songs: [Song]
+    let releaseYear: Int?
+    let primaryGenreName: String?
+    let totalDuration: TimeInterval?
 }
 
 nonisolated enum MusicLibraryGrouping {
@@ -86,12 +91,16 @@ nonisolated enum MusicLibraryGrouping {
             )
         }
         .map { id, songs in
-            LibraryAlbum(
+            let metadata = LibraryGroupMetadata(songs: songs)
+            return LibraryAlbum(
                 id: id,
                 title: id.title,
                 artistName: id.artistName,
                 artwork: songs.compactMap(\.artwork).first,
-                songs: songs.sorted(by: isAlbumTrackBefore)
+                songs: songs.sorted(by: isAlbumTrackBefore),
+                releaseYear: metadata.releaseYear,
+                primaryGenreName: metadata.primaryGenreName,
+                totalDuration: metadata.totalDuration
             )
         }
         .sorted(by: isAlbumBefore)
@@ -117,12 +126,15 @@ nonisolated enum MusicLibraryGrouping {
         return songsByArtist
         .map { name, songs in
             let songIDs = Set(songs.map(\.id))
+            let metadata = LibraryGroupMetadata(songs: songs)
             return LibraryArtist(
                 name: name,
                 songs: songs.sorted(by: MusicLibrarySortOption.title.areInIncreasingOrder),
                 albums: albums.filter { album in
                     album.songs.contains { songIDs.contains($0.id) }
-                }
+                },
+                primaryGenreName: metadata.primaryGenreName,
+                totalDuration: metadata.totalDuration
             )
         }
         .sorted { lhs, rhs in
@@ -185,6 +197,44 @@ nonisolated enum MusicLibraryGrouping {
             }
 
             return trimmedName
+        }
+    }
+}
+
+nonisolated struct LibraryGroupMetadata {
+    let releaseYear: Int?
+    let primaryGenreName: String?
+    let totalDuration: TimeInterval?
+
+    init(songs: [Song]) {
+        let years = Set(songs.compactMap { song in
+            song.releaseDate.map { Calendar.current.component(.year, from: $0) }
+        })
+        releaseYear = years.count == 1 ? years.first : nil
+
+        let genreCounts = songs.reduce(into: [String: Int]()) { counts, song in
+            for genre in Set(song.genreNames.filter {
+                !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            }) {
+                counts[genre, default: 0] += 1
+            }
+        }
+        let leadingGenre = genreCounts.max { lhs, rhs in
+            lhs.value == rhs.value
+                ? lhs.key.localizedStandardCompare(rhs.key) == .orderedDescending
+                : lhs.value < rhs.value
+        }
+        primaryGenreName = leadingGenre.flatMap { entry in
+            entry.value * 2 > songs.count ? entry.key : nil
+        }
+
+        let durations = songs.compactMap(\.duration)
+        if !songs.isEmpty,
+           durations.count == songs.count,
+           durations.allSatisfy({ $0.isFinite && $0 >= 0 }) {
+            totalDuration = durations.reduce(0, +)
+        } else {
+            totalDuration = nil
         }
     }
 }

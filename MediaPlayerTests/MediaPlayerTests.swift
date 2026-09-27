@@ -18,6 +18,78 @@ struct MediaPlayerTests {
         #expect(TrackDurationFormatter.string(from: nil) == "--:--")
     }
 
+    @Test func formatsLibraryGroupDuration() {
+        #expect(LibraryDurationFormatter.string(from: 30) == "<1m")
+        #expect(LibraryDurationFormatter.string(from: 3_600) == "1h")
+        #expect(LibraryDurationFormatter.string(from: 5_400) == "1h 30m")
+    }
+
+    @Test @MainActor func adaptsTrackColumnsToAvailableWidth() {
+        let fields: [SongListField] = [.releaseYear, .genre, .playCount]
+        let compact = SongListLayout(
+            availableWidth: 390,
+            textScale: 1,
+            context: .library,
+            orderedFields: fields
+        )
+        let regular = SongListLayout(
+            availableWidth: 600,
+            textScale: 1,
+            context: .library,
+            orderedFields: fields
+        )
+        let wide = SongListLayout(
+            availableWidth: 1_100,
+            textScale: 1,
+            context: .library,
+            orderedFields: fields
+        )
+
+        #expect(compact.density == .compact)
+        #expect(!compact.showsAlbumColumn)
+        #expect(compact.fields.isEmpty)
+        #expect(compact.inlineFields == fields)
+        #expect(regular.density == .regular)
+        #expect(regular.showsAlbumColumn)
+        #expect(regular.fields.isEmpty)
+        #expect(regular.inlineFields == fields)
+        #expect(wide.density == .expanded)
+        #expect(wide.fields == fields)
+        #expect(wide.inlineFields.isEmpty)
+    }
+
+    @Test @MainActor func omitsRepeatedAlbumAndRespectsFieldOrder() {
+        let order = SongListField.order(from: "genre,releaseYear,genre,unknown")
+        #expect(Array(order.prefix(2)) == [.genre, .releaseYear])
+
+        let layout = SongListLayout(
+            availableWidth: 900,
+            textScale: 1,
+            context: .album,
+            orderedFields: [.genre, .releaseYear]
+        )
+        #expect(!layout.showsAlbumColumn)
+        #expect(layout.fields == [.genre, .releaseYear])
+    }
+
+    @Test @MainActor func hidesOptionalTrackListElements() {
+        let layout = SongListLayout(
+            availableWidth: 900,
+            textScale: 1,
+            context: .library,
+            orderedFields: [.releaseYear],
+            showsAlbum: false,
+            showsDuration: false,
+            showsInfoButton: false
+        )
+
+        #expect(!layout.showsAlbum)
+        #expect(!layout.showsAlbumColumn)
+        #expect(!layout.showsDuration)
+        #expect(!layout.showsInfoButton)
+        #expect(layout.fields == [.releaseYear])
+    }
+
     @Test func normalizesPlaybackProgress() {
         #expect(PlaybackProgress.normalizedTime(-1, duration: 120) == 0)
         #expect(PlaybackProgress.normalizedTime(30, duration: 120) == 30)

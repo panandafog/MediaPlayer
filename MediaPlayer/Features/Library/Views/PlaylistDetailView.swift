@@ -62,6 +62,7 @@ struct PlaylistDetailView: View {
             SongListView(
                 songs: viewModel.songs,
                 queue: viewModel.songs,
+                context: .playlist,
                 currentSongState: currentSongState,
                 isLoading: viewModel.isLoading,
                 onPlay: onPlay

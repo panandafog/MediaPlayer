@@ -16,6 +16,7 @@ struct AlbumDetailView: View {
         SongListView(
             songs: album.songs,
             queue: album.songs,
+            context: .album,
             currentSongState: currentSongState,
             onPlay: onPlay
         )

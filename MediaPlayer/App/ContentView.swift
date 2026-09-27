@@ -46,6 +46,12 @@ struct ContentView: View {
             .toolbar {
 #if os(macOS)
                 ToolbarItemGroup(placement: .primaryAction) {
+                    if library.authorizationStatus == .authorized,
+                       navigationPath.isEmpty {
+                        MacLibrarySearchField(text: $library.searchText)
+                            .frame(width: 230)
+                    }
+
                     if library.authorizationStatus == .authorized {
                         libraryMenu
                     }
@@ -80,10 +86,12 @@ struct ContentView: View {
             }
         }
         .environment(\.playerAccessoryHeight, bottomAccessoryHeight)
+#if os(iOS)
         .playerSearchable(
             text: $library.searchText,
             usesTopSearch: usesTopSearch
         )
+#endif
         .overlay(alignment: .bottom) {
             bottomAccessory
                 .onGeometryChange(for: CGFloat.self) { geometry in
@@ -240,13 +248,11 @@ struct ContentView: View {
     }
 #endif
 
-    private var usesTopSearch: Bool {
 #if os(iOS)
+    private var usesTopSearch: Bool {
         selectedSearchBarPosition == .top
-#else
-        true
-#endif
     }
+#endif
 
     private var bottomAccessory: some View {
         VStack(spacing: 0) {
@@ -353,13 +359,13 @@ private enum BottomSearchLayout {
 }
 #endif
 
+#if os(iOS)
 private extension View {
     @ViewBuilder
     func playerSearchable(
         text: Binding<String>,
         usesTopSearch: Bool
     ) -> some View {
-#if os(iOS)
         if usesTopSearch {
             searchable(
                 text: text,
@@ -369,15 +375,9 @@ private extension View {
         } else {
             self
         }
-#else
-        searchable(
-            text: text,
-            placement: .automatic,
-            prompt: "Track, album, artist, or playlist"
-        )
-#endif
     }
 }
+#endif
 
 #Preview {
 #if os(macOS)
