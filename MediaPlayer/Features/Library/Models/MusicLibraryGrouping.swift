@@ -84,10 +84,25 @@ nonisolated enum MusicLibraryGrouping {
     }
 
     private static func albums(from songs: [Song]) -> [LibraryAlbum] {
-        Dictionary(grouping: songs) { song in
-            LibraryAlbum.ID(
-                artistName: displayArtistName(song.artistName),
-                title: displayAlbumTitle(song.albumTitle)
+        let artistNamesByAlbumTitle = Dictionary(
+            grouping: songs,
+            by: { displayAlbumTitle($0.albumTitle) }
+        )
+        .mapValues { albumSongs in
+            Set(albumSongs.map { displayArtistName($0.artistName) })
+        }
+
+        return Dictionary(grouping: songs) { song in
+            let title = displayAlbumTitle(song.albumTitle)
+            let artistName = displayArtistName(song.artistName)
+            return LibraryAlbum.ID(
+                artistName: song.albumTitle?.isEmpty == false
+                    ? AlbumArtistNameResolver.canonicalName(
+                        for: artistName,
+                        among: artistNamesByAlbumTitle[title] ?? []
+                    )
+                    : artistName,
+                title: title
             )
         }
         .map { id, songs in
@@ -198,6 +213,40 @@ nonisolated enum MusicLibraryGrouping {
 
             return trimmedName
         }
+    }
+}
+
+nonisolated enum AlbumArtistNameResolver {
+    static func canonicalName(for artistName: String, among albumArtistNames: Set<String>) -> String {
+        albumArtistNames
+            .filter { isCollaborationVariant(artistName, of: $0) }
+            .min { lhs, rhs in
+                lhs.count == rhs.count
+                    ? lhs.localizedStandardCompare(rhs) == .orderedAscending
+                    : lhs.count < rhs.count
+            }
+            ?? artistName
+    }
+
+    private static func isCollaborationVariant(_ name: String, of baseName: String) -> Bool {
+        guard !baseName.isEmpty,
+              baseName != "Unknown Artist",
+              let prefix = name.range(
+                  of: baseName,
+                  options: [.anchored, .caseInsensitive, .diacriticInsensitive]
+              ),
+              prefix.upperBound < name.endIndex else {
+            return false
+        }
+
+        let suffix = String(name[prefix.upperBound...])
+        return suffix.range(
+            of: #"^\s+(?:feat(?:uring)?|ft|with)\.?\s+\S"#,
+            options: [.regularExpression, .caseInsensitive]
+        ) != nil || suffix.range(
+            of: #"^(?:\s*[,;&]\s*\S|\s+/\s+\S)"#,
+            options: .regularExpression
+        ) != nil
     }
 }
 

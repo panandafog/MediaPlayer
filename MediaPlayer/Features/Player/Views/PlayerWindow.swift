@@ -22,13 +22,15 @@ struct PlayerWindow: View {
     @AppStorage(PlayerSettingsKey.usesLiquidGlassInPlayerWindow)
     private var usesLiquidGlassInPlayerWindow = true
     @State private var isFullScreen = false
+    @State private var usesCompactChrome = false
 
     var body: some View {
         NavigationStack {
             NowPlayingView(
                 player: player,
                 onOpenArtist: openArtist,
-                onOpenAlbum: openAlbum
+                onOpenAlbum: openAlbum,
+                showsTrackInfoInToolbar: !usesCompactChrome
             )
         }
         .containerBackground(for: .window) {
@@ -38,7 +40,12 @@ struct PlayerWindow: View {
                 PlayerWindowGlassBackground()
             }
         }
-        .background(PlayerWindowConfigurator(isFullScreen: $isFullScreen))
+        .background(
+            PlayerWindowConfigurator(
+                isFullScreen: $isFullScreen,
+                usesCompactChrome: $usesCompactChrome
+            )
+        )
         .task {
             await library.loadIfAuthorized()
         }
@@ -85,9 +92,13 @@ private struct PlayerWindowGlassBackground: NSViewRepresentable {
 
 private struct PlayerWindowConfigurator: NSViewRepresentable {
     @Binding var isFullScreen: Bool
+    @Binding var usesCompactChrome: Bool
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(isFullScreen: $isFullScreen)
+        Coordinator(
+            isFullScreen: $isFullScreen,
+            usesCompactChrome: $usesCompactChrome
+        )
     }
 
     func makeNSView(context: Context) -> NSView {
@@ -97,7 +108,10 @@ private struct PlayerWindowConfigurator: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {
-        context.coordinator.update(isFullScreen: $isFullScreen)
+        context.coordinator.update(
+            isFullScreen: $isFullScreen,
+            usesCompactChrome: $usesCompactChrome
+        )
         context.coordinator.attach(to: nsView)
     }
 
@@ -108,16 +122,22 @@ private struct PlayerWindowConfigurator: NSViewRepresentable {
     @MainActor
     final class Coordinator: NSObject {
         private var isFullScreen: Binding<Bool>
+        private var usesCompactChrome: Binding<Bool>
         private weak var window: NSWindow?
         private var observers: [NSObjectProtocol] = []
         private let delegateProxy = PlayerWindowDelegateProxy()
 
-        init(isFullScreen: Binding<Bool>) {
+        init(isFullScreen: Binding<Bool>, usesCompactChrome: Binding<Bool>) {
             self.isFullScreen = isFullScreen
+            self.usesCompactChrome = usesCompactChrome
         }
 
-        func update(isFullScreen: Binding<Bool>) {
+        func update(
+            isFullScreen: Binding<Bool>,
+            usesCompactChrome: Binding<Bool>
+        ) {
             self.isFullScreen = isFullScreen
+            self.usesCompactChrome = usesCompactChrome
         }
 
         func attach(to view: NSView) {
@@ -137,6 +157,9 @@ private struct PlayerWindowConfigurator: NSViewRepresentable {
         func detach() {
             observers.forEach(NotificationCenter.default.removeObserver)
             observers.removeAll()
+
+            window?.standardWindowButton(.miniaturizeButton)?.isHidden = false
+            window?.standardWindowButton(.zoomButton)?.isHidden = false
 
             if window?.delegate === delegateProxy {
                 window?.delegate = delegateProxy.originalDelegate
@@ -158,6 +181,7 @@ private struct PlayerWindowConfigurator: NSViewRepresentable {
 
             let names: [Notification.Name] = [
                 NSWindow.didBecomeKeyNotification,
+                NSWindow.didResizeNotification,
                 NSWindow.didUpdateNotification,
                 NSWindow.willEnterFullScreenNotification,
                 NSWindow.didEnterFullScreenNotification,
@@ -189,6 +213,12 @@ private struct PlayerWindowConfigurator: NSViewRepresentable {
         }
 
         private func configure(_ window: NSWindow) {
+            let shouldUseCompactChrome = !window.styleMask.contains(.fullScreen)
+                && PlayerWindowChromeLayout.usesCompactChrome(for: window.frame.size)
+            if usesCompactChrome.wrappedValue != shouldUseCompactChrome {
+                usesCompactChrome.wrappedValue = shouldUseCompactChrome
+            }
+
             var collectionBehavior = window.collectionBehavior
             collectionBehavior.insert(.fullScreenPrimary)
             collectionBehavior.remove(.fullScreenAuxiliary)
@@ -200,7 +230,10 @@ private struct PlayerWindowConfigurator: NSViewRepresentable {
                 window.delegate = delegateProxy
             }
 
+            window.standardWindowButton(.miniaturizeButton)?.isHidden = shouldUseCompactChrome
+
             if let fullScreenButton = window.standardWindowButton(.zoomButton) {
+                fullScreenButton.isHidden = shouldUseCompactChrome
                 fullScreenButton.isEnabled = true
                 fullScreenButton.target = self
                 fullScreenButton.action = #selector(toggleFullScreen(_:))
@@ -209,6 +242,14 @@ private struct PlayerWindowConfigurator: NSViewRepresentable {
                     : "Enter Full Screen"
             }
         }
+    }
+}
+
+enum PlayerWindowChromeLayout {
+    static func usesCompactChrome(for windowSize: CGSize) -> Bool {
+        // Window size stays stable when the toolbar item disappears.
+        windowSize.height < 230
+            || (windowSize.width < 300 && windowSize.height < 360)
     }
 }
 

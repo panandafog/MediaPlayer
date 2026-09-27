@@ -90,6 +90,42 @@ struct MediaPlayerTests {
         #expect(layout.fields == [.releaseYear])
     }
 
+    @Test @MainActor func adaptsNowPlayingLayoutToAvailableSize() {
+        let examples: [(CGSize, NowPlayingLayout)] = [
+            (CGSize(width: 390, height: 700), .fullVertical),
+            (CGSize(width: 844, height: 390), .fullHorizontal),
+            (CGSize(width: 300, height: 449), .compactVertical),
+            (CGSize(width: 260, height: 400), .compactVertical),
+            (CGSize(width: 180, height: 300), .compactVertical),
+            (CGSize(width: 480, height: 260), .compactHorizontal),
+            (CGSize(width: 360, height: 170), .compactHorizontal),
+            (CGSize(width: 440, height: 169), .minimalWideHorizontal),
+            (CGSize(width: 440, height: 80), .minimalWideHorizontal),
+            (CGSize(width: 600, height: 100), .minimalWideHorizontal),
+            (CGSize(width: 180, height: 299), .minimalVertical),
+            (CGSize(width: 180, height: 200), .minimalVertical),
+            (CGSize(width: 439, height: 100), .minimalHorizontal),
+            (CGSize(width: 440, height: 79), .minimalHorizontal),
+            (CGSize(width: 350, height: 180), .minimalHorizontal),
+            (CGSize(width: 250, height: 140), .minimalHorizontal),
+            (CGSize(width: 180, height: 100), .minimalHorizontal)
+        ]
+
+        for (size, expectedLayout) in examples {
+            #expect(NowPlayingLayoutMetrics(availableSize: size).layout == expectedLayout)
+        }
+    }
+
+#if os(macOS)
+    @Test @MainActor func reducesPlayerWindowChromeOnlyForSmallWindows() {
+        #expect(PlayerWindowChromeLayout.usesCompactChrome(for: CGSize(width: 180, height: 100)))
+        #expect(PlayerWindowChromeLayout.usesCompactChrome(for: CGSize(width: 440, height: 169)))
+        #expect(PlayerWindowChromeLayout.usesCompactChrome(for: CGSize(width: 180, height: 300)))
+        #expect(!PlayerWindowChromeLayout.usesCompactChrome(for: CGSize(width: 380, height: 560)))
+        #expect(!PlayerWindowChromeLayout.usesCompactChrome(for: CGSize(width: 380, height: 300)))
+    }
+#endif
+
     @Test func normalizesPlaybackProgress() {
         #expect(PlaybackProgress.normalizedTime(-1, duration: 120) == 0)
         #expect(PlaybackProgress.normalizedTime(30, duration: 120) == 30)
@@ -259,6 +295,39 @@ struct MediaPlayerTests {
         #expect(
             SmartArtistGroupingSettings.normalizedSeparatorCharacters(" , , & / ")
                 == ",&/"
+        )
+    }
+
+    @Test func groupsFeaturedTracksWithTheMainAlbumArtist() {
+        let names: Set<String> = [
+            "Gorilla Zippo",
+            "Gorilla Zippo feat. Anikv",
+            "Gorilla Zippo feat. Anikv & Richie",
+            "Gorilla Zippo & KickShot",
+            "Other Artist"
+        ]
+
+        for name in names where name.hasPrefix("Gorilla Zippo") && name != "Gorilla Zippo" {
+            #expect(
+                AlbumArtistNameResolver.canonicalName(for: name, among: names)
+                    == "Gorilla Zippo"
+            )
+        }
+        #expect(
+            AlbumArtistNameResolver.canonicalName(for: "Other Artist", among: names)
+                == "Other Artist"
+        )
+    }
+
+    @Test func keepsUnrelatedAlbumArtistsSeparate() {
+        let names: Set<String> = ["AC", "AC/DC", "Gorilla Zippo feat. Anikv"]
+
+        #expect(AlbumArtistNameResolver.canonicalName(for: "AC/DC", among: names) == "AC/DC")
+        #expect(
+            AlbumArtistNameResolver.canonicalName(
+                for: "Gorilla Zippo feat. Anikv",
+                among: names
+            ) == "Gorilla Zippo feat. Anikv"
         )
     }
 

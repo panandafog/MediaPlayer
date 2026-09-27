@@ -11,17 +11,20 @@ struct NowPlayingView: View {
     @ObservedObject var player: MusicPlayerViewModel
     let onOpenArtist: ((Song) -> Void)?
     let onOpenAlbum: ((Song) -> Void)?
+    let showsTrackInfoInToolbar: Bool
     @State private var isShowingQueue = false
     @State private var detailsSong: Song?
 
     init(
         player: MusicPlayerViewModel,
         onOpenArtist: ((Song) -> Void)? = nil,
-        onOpenAlbum: ((Song) -> Void)? = nil
+        onOpenAlbum: ((Song) -> Void)? = nil,
+        showsTrackInfoInToolbar: Bool = true
     ) {
         self.player = player
         self.onOpenArtist = onOpenArtist
         self.onOpenAlbum = onOpenAlbum
+        self.showsTrackInfoInToolbar = showsTrackInfoInToolbar
     }
 
     var body: some View {
@@ -70,7 +73,7 @@ struct NowPlayingView: View {
             TrackDetailsView(song: song)
         }
         .toolbar {
-            if let song = player.currentSong {
+            if showsTrackInfoInToolbar, let song = player.currentSong {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
                         detailsSong = song
@@ -107,13 +110,15 @@ private struct NowPlayingContent: View {
             case .fullVertical:
                 verticalLayout(metrics: metrics)
             case .compactHorizontal:
-                compactHorizontalLayout(metrics: metrics, showsPlaybackControl: true)
+                compactHorizontalLayout(metrics: metrics, showsTransportControls: true)
             case .compactVertical:
-                compactVerticalLayout(metrics: metrics, showsPlaybackControl: true)
+                compactVerticalLayout(metrics: metrics, showsTransportControls: true)
+            case .minimalWideHorizontal:
+                minimalWideHorizontalLayout(metrics: metrics)
             case .minimalHorizontal:
-                compactHorizontalLayout(metrics: metrics, showsPlaybackControl: false)
+                compactHorizontalLayout(metrics: metrics, showsTransportControls: false)
             case .minimalVertical:
-                compactVerticalLayout(metrics: metrics, showsPlaybackControl: false)
+                compactVerticalLayout(metrics: metrics, showsTransportControls: false)
             }
         }
     }
@@ -141,11 +146,16 @@ private struct NowPlayingContent: View {
 
     private func compactVerticalLayout(
         metrics: NowPlayingLayoutMetrics,
-        showsPlaybackControl: Bool
+        showsTransportControls: Bool
     ) -> some View {
         VStack(spacing: metrics.compactSpacing) {
             artwork(size: metrics.compactArtworkSize)
-            compactDetails(showsPlaybackControl: showsPlaybackControl)
+            compactDetails(
+                showsTransportControls: showsTransportControls,
+                titleLineLimit: showsTransportControls
+                    ? NowPlayingContentMetrics.compactTitleLineLimit
+                    : NowPlayingContentMetrics.minimalTitleLineLimit
+            )
         }
         .padding(metrics.compactPadding)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -153,14 +163,44 @@ private struct NowPlayingContent: View {
 
     private func compactHorizontalLayout(
         metrics: NowPlayingLayoutMetrics,
-        showsPlaybackControl: Bool
+        showsTransportControls: Bool
     ) -> some View {
         HStack(spacing: metrics.compactSpacing) {
             artwork(size: metrics.compactArtworkSize)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            compactDetails(showsPlaybackControl: showsPlaybackControl)
+            compactDetails(
+                showsTransportControls: showsTransportControls,
+                titleLineLimit: NowPlayingContentMetrics.horizontalTitleLineLimit
+            )
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .padding(metrics.compactPadding)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func minimalWideHorizontalLayout(metrics: NowPlayingLayoutMetrics) -> some View {
+        HStack(spacing: metrics.compactSpacing) {
+            artwork(
+                size: min(
+                    metrics.compactArtworkSize,
+                    NowPlayingContentMetrics.wideMinimalArtworkMaximumSize
+                )
+            )
+
+            VStack(alignment: .leading, spacing: NowPlayingContentMetrics.metadataSpacing) {
+                Text(song.title)
+                    .font(.headline)
+                    .lineLimit(1)
+
+                Text("\(song.artistName) · \(song.albumTitle ?? "Unknown Album")")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            transportControls(spacing: NowPlayingContentMetrics.compactControlSpacing)
         }
         .padding(metrics.compactPadding)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -186,24 +226,7 @@ private struct NowPlayingContent: View {
                 onSeek: onSeek
             )
 
-            HStack(spacing: metrics.controlSpacing) {
-                LargePlayerControlButton(
-                    title: "Previous track",
-                    systemImage: "backward.fill",
-                    action: onPrevious
-                )
-                LargePlayerControlButton(
-                    title: isPlaying ? "Pause" : "Play",
-                    systemImage: isPlaying ? "pause.fill" : "play.fill",
-                    isPrimary: true,
-                    action: onTogglePlayback
-                )
-                LargePlayerControlButton(
-                    title: "Next track",
-                    systemImage: "forward.fill",
-                    action: onNext
-                )
-            }
+            transportControls(spacing: metrics.controlSpacing)
 
             PlayerUtilityControls(
                 song: song,
@@ -216,25 +239,54 @@ private struct NowPlayingContent: View {
         }
     }
 
-    private func compactDetails(showsPlaybackControl: Bool) -> some View {
+    private func compactDetails(
+        showsTransportControls: Bool,
+        titleLineLimit: Int
+    ) -> some View {
         VStack(spacing: NowPlayingContentMetrics.compactDetailsSpacing) {
             Text(song.title)
                 .font(.headline)
-                .lineLimit(
-                    showsPlaybackControl
-                        ? NowPlayingContentMetrics.compactTitleLineLimit
-                        : NowPlayingContentMetrics.minimalTitleLineLimit
-                )
+                .lineLimit(titleLineLimit)
                 .multilineTextAlignment(.center)
 
-            if showsPlaybackControl {
+            if showsTransportControls {
+                PlaybackProgressSlider(
+                    playbackTime: playbackTime.value,
+                    duration: song.duration,
+                    onSeek: onSeek
+                )
+
+                transportControls(spacing: NowPlayingContentMetrics.compactControlSpacing)
+            } else {
                 LargePlayerControlButton(
                     title: isPlaying ? "Pause" : "Play",
                     systemImage: isPlaying ? "pause.fill" : "play.fill",
                     isPrimary: true,
+                    size: PlayerControlMetrics.regularButtonSize,
                     action: onTogglePlayback
                 )
             }
+        }
+    }
+
+    private func transportControls(spacing: CGFloat) -> some View {
+        HStack(spacing: spacing) {
+            LargePlayerControlButton(
+                title: "Previous track",
+                systemImage: "backward.fill",
+                action: onPrevious
+            )
+            LargePlayerControlButton(
+                title: isPlaying ? "Pause" : "Play",
+                systemImage: isPlaying ? "pause.fill" : "play.fill",
+                isPrimary: true,
+                action: onTogglePlayback
+            )
+            LargePlayerControlButton(
+                title: "Next track",
+                systemImage: "forward.fill",
+                action: onNext
+            )
         }
     }
 
@@ -265,19 +317,23 @@ private struct NowPlayingContent: View {
 }
 
 private enum NowPlayingContentMetrics {
-    static let compactDetailsSpacing: CGFloat = 12
+    static let compactDetailsSpacing: CGFloat = 8
+    static let compactControlSpacing: CGFloat = 8
     static let metadataSpacing: CGFloat = 6
+    static let wideMinimalArtworkMaximumSize: CGFloat = 96
+    static let horizontalTitleLineLimit = 1
     static let compactTitleLineLimit = 3
     static let minimalTitleLineLimit = 2
     static let titleLineLimit = 2
 }
 
-private enum NowPlayingLayout: Equatable {
+enum NowPlayingLayout: Equatable {
     case fullVertical
     case fullHorizontal
     case compactVertical
     case compactHorizontal
     case minimalVertical
+    case minimalWideHorizontal
     case minimalHorizontal
 }
 
@@ -308,11 +364,10 @@ private struct PlayerMetadataLink<S: ShapeStyle>: View {
     }
 }
 
-private struct NowPlayingLayoutMetrics {
+struct NowPlayingLayoutMetrics {
     let availableSize: CGSize
 
     var layout: NowPlayingLayout {
-#if os(macOS)
         if usesHorizontalLayout,
            validWidth >= Constants.fullHorizontalMinimumWidth,
            validHeight >= Constants.fullHorizontalMinimumHeight {
@@ -337,10 +392,13 @@ private struct NowPlayingLayoutMetrics {
             return .compactVertical
         }
 
+        if usesHorizontalLayout,
+           validWidth >= Constants.minimalWideHorizontalMinimumWidth,
+           validHeight >= Constants.minimalWideHorizontalMinimumHeight {
+            return .minimalWideHorizontal
+        }
+
         return usesHorizontalLayout ? .minimalHorizontal : .minimalVertical
-#else
-        return usesHorizontalLayout ? .fullHorizontal : .fullVertical
-#endif
     }
 
     private var isCompact: Bool {
@@ -447,10 +505,12 @@ private struct NowPlayingLayoutMetrics {
         static let fullHorizontalMinimumHeight: CGFloat = 300
         static let fullVerticalMinimumWidth: CGFloat = 300
         static let fullVerticalMinimumHeight: CGFloat = 450
-        static let compactHorizontalMinimumWidth: CGFloat = 300
-        static let compactHorizontalMinimumHeight: CGFloat = 150
+        static let compactHorizontalMinimumWidth: CGFloat = 360
+        static let compactHorizontalMinimumHeight: CGFloat = 170
         static let compactVerticalMinimumWidth: CGFloat = 180
-        static let compactVerticalMinimumHeight: CGFloat = 240
+        static let compactVerticalMinimumHeight: CGFloat = 300
+        static let minimalWideHorizontalMinimumWidth: CGFloat = 440
+        static let minimalWideHorizontalMinimumHeight: CGFloat = 80
 
         static let compactHeightThreshold: CGFloat = 650
         static let compactOuterPadding: CGFloat = 16
@@ -474,8 +534,8 @@ private struct NowPlayingLayoutMetrics {
         static let constrainedCompactSpacing: CGFloat = 8
         static let regularCompactSpacing: CGFloat = 16
         static let maximumCompactArtworkSize: CGFloat = 360
-        static let compactDetailsReservedHeight: CGFloat = 120
-        static let minimalDetailsReservedHeight: CGFloat = 34
+        static let compactDetailsReservedHeight: CGFloat = 180
+        static let minimalDetailsReservedHeight: CGFloat = 100
     }
 }
 
@@ -483,6 +543,7 @@ private struct LargePlayerControlButton: View {
     let title: String
     let systemImage: String
     var isPrimary = false
+    var size: CGFloat? = nil
     let action: () -> Void
 
     @ViewBuilder
@@ -507,8 +568,8 @@ private struct LargePlayerControlButton: View {
     }
 
     private var buttonSize: CGFloat {
-        isPrimary
+        size ?? (isPrimary
             ? PlayerControlMetrics.primaryButtonSize
-            : PlayerControlMetrics.regularButtonSize
+            : PlayerControlMetrics.regularButtonSize)
     }
 }
