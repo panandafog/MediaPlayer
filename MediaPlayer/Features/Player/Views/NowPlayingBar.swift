@@ -42,7 +42,6 @@ struct NowPlayingBar: View {
                 if layout.showsUtilityActions {
                     AudioRoutePickerButton()
                     CompactPlayerOptionsMenu(
-                        song: song,
                         playbackMode: playbackMode,
                         onSelectPlaybackMode: onSelectPlaybackMode,
                         onShowQueue: onShowQueue

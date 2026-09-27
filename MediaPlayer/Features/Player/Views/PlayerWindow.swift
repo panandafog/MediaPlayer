@@ -15,6 +15,7 @@ struct PlayerWindow: View {
     static let idealSize = CGSize(width: 380, height: 560)
 
     @Environment(\.openWindow) private var openWindow
+    @Environment(\.colorScheme) private var colorScheme
 
     @ObservedObject var player: MusicPlayerViewModel
     @ObservedObject var library: MusicLibraryViewModel
@@ -25,16 +26,19 @@ struct PlayerWindow: View {
     @State private var usesCompactChrome = false
 
     var body: some View {
-        NavigationStack {
-            NowPlayingView(
-                player: player,
-                onOpenArtist: openArtist,
-                onOpenAlbum: openAlbum,
-                showsTrackInfoInToolbar: !usesCompactChrome
-            )
-        }
+        NowPlayingView(
+            player: player,
+            onOpenArtist: openArtist,
+            onOpenAlbum: openAlbum
+        )
+        .environment(
+            \.colorScheme,
+            player.currentSong?.artwork == nil ? colorScheme : .dark
+        )
         .containerBackground(for: .window) {
-            if isFullScreen || !usesLiquidGlassInPlayerWindow {
+            if let artwork = player.currentSong?.artwork {
+                PlayerArtworkBackground(artwork: artwork)
+            } else if isFullScreen || !usesLiquidGlassInPlayerWindow {
                 Color(nsColor: .windowBackgroundColor)
             } else {
                 PlayerWindowGlassBackground()
@@ -213,7 +217,7 @@ private struct PlayerWindowConfigurator: NSViewRepresentable {
         }
 
         private func configure(_ window: NSWindow) {
-            let shouldUseCompactChrome = !window.styleMask.contains(.fullScreen)
+            let shouldUseCompactChrome = !isFullScreen.wrappedValue
                 && PlayerWindowChromeLayout.usesCompactChrome(for: window.frame.size)
             if usesCompactChrome.wrappedValue != shouldUseCompactChrome {
                 usesCompactChrome.wrappedValue = shouldUseCompactChrome

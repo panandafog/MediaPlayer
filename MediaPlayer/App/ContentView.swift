@@ -27,6 +27,8 @@ struct ContentView: View {
         SmartArtistGroupingSettings.defaultSeparatorCharacters
     @AppStorage(PlayerSettingsKey.usesSmartArtistGrouping)
     private var usesSmartArtistGrouping = false
+    @AppStorage(PlayerSettingsKey.resumesPlaybackOnLaunch)
+    private var resumesPlaybackOnLaunch = false
 #if os(iOS)
     @AppStorage(PlayerSettingsKey.searchBarPosition) private var searchBarPosition =
         SearchBarPosition.top.rawValue
@@ -174,7 +176,10 @@ struct ContentView: View {
     private func refreshLibrary() {
         Task {
             await library.loadLibrary()
-            player.restorePlaybackIfNeeded(from: library.songs)
+            await player.restorePlaybackIfNeeded(
+                from: library.songs,
+                startsPlaying: resumesPlaybackOnLaunch
+            )
         }
     }
 
@@ -189,7 +194,10 @@ struct ContentView: View {
 
     private func loadLibraryAndRestorePlayback() async {
         await library.loadIfAuthorized()
-        player.restorePlaybackIfNeeded(from: library.songs)
+        await player.restorePlaybackIfNeeded(
+            from: library.songs,
+            startsPlaying: resumesPlaybackOnLaunch
+        )
     }
 
     private func updateSmartArtistGrouping() {

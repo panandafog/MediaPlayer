@@ -53,7 +53,7 @@ private enum Layout {
     static let cornerRadius: CGFloat = 7
 }
 
-private struct HighResolutionArtworkImage: View {
+struct HighResolutionArtworkImage: View {
     @Environment(\.displayScale) private var displayScale
     @State private var loadedImage: PlatformArtworkImage?
     @State private var loadedArtworkIdentifier: URL?
@@ -61,6 +61,7 @@ private struct HighResolutionArtworkImage: View {
 
     let artwork: Artwork
     let size: CGFloat
+    var maximumPixelDimension: Int? = nil
 
     var body: some View {
         Group {
@@ -90,13 +91,14 @@ private struct HighResolutionArtworkImage: View {
 
     private var pixelDimension: Int {
         let requestedDimension = max(Int((size * max(displayScale, 1)).rounded(.up)), 1)
+        let cappedDimension = min(requestedDimension, maximumPixelDimension ?? requestedDimension)
         let maximumDimension = min(artwork.maximumWidth, artwork.maximumHeight)
 
         guard maximumDimension > 0 else {
-            return requestedDimension
+            return cappedDimension
         }
 
-        return min(requestedDimension, maximumDimension)
+        return min(cappedDimension, maximumDimension)
     }
 
     @MainActor

@@ -8,23 +8,21 @@ import MusicKit
 import SwiftUI
 
 struct NowPlayingView: View {
+    @Environment(\.colorScheme) private var colorScheme
     @ObservedObject var player: MusicPlayerViewModel
     let onOpenArtist: ((Song) -> Void)?
     let onOpenAlbum: ((Song) -> Void)?
-    let showsTrackInfoInToolbar: Bool
     @State private var isShowingQueue = false
     @State private var detailsSong: Song?
 
     init(
         player: MusicPlayerViewModel,
         onOpenArtist: ((Song) -> Void)? = nil,
-        onOpenAlbum: ((Song) -> Void)? = nil,
-        showsTrackInfoInToolbar: Bool = true
+        onOpenAlbum: ((Song) -> Void)? = nil
     ) {
         self.player = player
         self.onOpenArtist = onOpenArtist
         self.onOpenAlbum = onOpenAlbum
-        self.showsTrackInfoInToolbar = showsTrackInfoInToolbar
     }
 
     var body: some View {
@@ -55,6 +53,9 @@ struct NowPlayingView: View {
                     onShowQueue: {
                         isShowingQueue = true
                     },
+                    onShowTrackInfo: {
+                        detailsSong = song
+                    },
                     onOpenArtist: onOpenArtist,
                     onOpenAlbum: onOpenAlbum
                 )
@@ -66,24 +67,62 @@ struct NowPlayingView: View {
                 )
             }
         }
+        .background {
+            if let artwork = player.currentSong?.artwork {
+                PlayerArtworkBackground(artwork: artwork)
+            }
+        }
+        .environment(
+            \.colorScheme,
+            player.currentSong?.artwork == nil ? colorScheme : .dark
+        )
         .sheet(isPresented: $isShowingQueue) {
             PlaybackQueueView(player: player)
         }
         .sheet(item: $detailsSong) { song in
             TrackDetailsView(song: song)
         }
-        .toolbar {
-            if showsTrackInfoInToolbar, let song = player.currentSong {
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        detailsSong = song
-                    } label: {
-                        Label("Track Info", systemImage: "info.circle")
-                    }
-                }
+    }
+}
+
+struct PlayerArtworkBackground: View {
+    let artwork: Artwork
+
+    var body: some View {
+        GeometryReader { geometry in
+            let dimension = max(geometry.size.width, geometry.size.height)
+                + BackgroundStyle.blurInset * 2
+
+            HighResolutionArtworkImage(
+                artwork: artwork,
+                size: dimension,
+                maximumPixelDimension: BackgroundStyle.maximumPixelDimension
+            )
+            .blur(radius: BackgroundStyle.blurRadius)
+            .frame(width: geometry.size.width, height: geometry.size.height)
+            .clipped()
+            .overlay {
+                LinearGradient(
+                    colors: [
+                        .black.opacity(BackgroundStyle.topDimming),
+                        .black.opacity(BackgroundStyle.bottomDimming)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
             }
         }
+        .ignoresSafeArea()
+        .accessibilityHidden(true)
     }
+}
+
+private enum BackgroundStyle {
+    static let blurRadius: CGFloat = 35
+    static let blurInset: CGFloat = 50
+    static let maximumPixelDimension = 1600
+    static let topDimming = 0.5
+    static let bottomDimming = 0.68
 }
 
 private struct NowPlayingContent: View {
@@ -97,6 +136,7 @@ private struct NowPlayingContent: View {
     let onSeek: (TimeInterval) -> Void
     let onSelectPlaybackMode: (PlaybackMode) -> Void
     let onShowQueue: () -> Void
+    let onShowTrackInfo: () -> Void
     let onOpenArtist: ((Song) -> Void)?
     let onOpenAlbum: ((Song) -> Void)?
 
@@ -229,10 +269,10 @@ private struct NowPlayingContent: View {
             transportControls(spacing: metrics.controlSpacing)
 
             PlayerUtilityControls(
-                song: song,
                 playbackMode: playbackMode,
                 onSelectPlaybackMode: onSelectPlaybackMode,
-                onShowQueue: onShowQueue
+                onShowQueue: onShowQueue,
+                onShowTrackInfo: onShowTrackInfo
             )
 
             Spacer(minLength: 0)

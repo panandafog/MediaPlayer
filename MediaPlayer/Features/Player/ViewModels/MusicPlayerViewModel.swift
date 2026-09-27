@@ -51,6 +51,7 @@ final class MusicPlayerViewModel: ObservableObject {
     private var sourceQueueSongs: [Song] = []
     private var songIDsByQueueEntryID: [String: MusicItemID] = [:]
     private var didAttemptPlaybackRestoration = false
+    private var isRestoringPlayback = false
     private var lastPersistedSongID: MusicItemID?
     private var lastPersistedPlaybackTime: TimeInterval?
 
@@ -188,7 +189,10 @@ final class MusicPlayerViewModel: ObservableObject {
         persistPlaybackSnapshot(force: true)
     }
 
-    func restorePlaybackIfNeeded(from librarySongs: [Song]) {
+    func restorePlaybackIfNeeded(
+        from librarySongs: [Song],
+        startsPlaying: Bool
+    ) async {
         syncPlayerState()
 
         guard !didAttemptPlaybackRestoration,
@@ -213,10 +217,39 @@ final class MusicPlayerViewModel: ObservableObject {
             restoredQueue = [currentSong]
         }
 
+        let restorationRequestID = playbackRequestID
+        isRestoringPlayback = true
         sourceQueueSongs = restoredQueue
         installPlaybackQueue(restoredQueue, startingAt: currentSong)
+        playbackTime.update(to: snapshot.playbackTime)
+
+        do {
+            try await player.prepareToPlay()
+        } catch {
+            logger.warning(
+                "Could not prepare restored playback. \(error.localizedDescription, privacy: .public)"
+            )
+        }
+
+        guard !Task.isCancelled,
+              isCurrentPlaybackRequest(restorationRequestID),
+              self.currentSong?.id == currentSong.id else {
+            isRestoringPlayback = false
+            persistPlaybackSnapshot(force: true)
+            return
+        }
+
+        if !startsPlaying {
+            player.pause()
+        }
+        isRestoringPlayback = false
         seek(to: snapshot.playbackTime)
-        syncPlayerState()
+
+        if startsPlaying {
+            await togglePlayback()
+        } else {
+            updatePlaybackStatus(player.state.playbackStatus)
+        }
     }
 
     func clearError() {
@@ -344,6 +377,10 @@ final class MusicPlayerViewModel: ObservableObject {
     }
 
     private func syncPlaybackTime() {
+        guard !isRestoringPlayback else {
+            return
+        }
+
         let normalizedTime = PlaybackProgress.normalizedTime(
             player.playbackTime,
             duration: currentSong?.duration
@@ -396,6 +433,7 @@ final class MusicPlayerViewModel: ObservableObject {
     }
 
     private func beginPlaybackRequest() -> UUID {
+        isRestoringPlayback = false
         queueExtensionTask?.cancel()
         queueReorderTask?.cancel()
         let requestID = UUID()
@@ -678,6 +716,10 @@ final class MusicPlayerViewModel: ObservableObject {
     }
 
     private func persistPlaybackSnapshot(force: Bool = false) {
+        guard !isRestoringPlayback else {
+            return
+        }
+
         guard let currentSong else {
             return
         }

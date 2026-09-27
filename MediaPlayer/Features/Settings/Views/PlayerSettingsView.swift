@@ -6,6 +6,8 @@
 import SwiftUI
 
 struct PlayerSettingsView: View {
+    @AppStorage(PlayerSettingsKey.resumesPlaybackOnLaunch)
+    private var resumesPlaybackOnLaunch = false
     @AppStorage(PlayerSettingsKey.smartArtistSeparatorCharacters)
     private var smartArtistSeparatorCharacters =
         SmartArtistGroupingSettings.defaultSeparatorCharacters
@@ -52,6 +54,20 @@ struct PlayerSettingsView: View {
 
     private var settingsForm: some View {
         Form {
+            Section {
+                Toggle(
+                    "Start Playback on Launch from Last Position",
+                    isOn: $resumesPlaybackOnLaunch
+                )
+            } header: {
+                Text("Playback")
+            } footer: {
+                Text(
+                    "The current track and position are saved automatically. "
+                        + "When this is off, the last track is restored on pause."
+                )
+            }
+
             Section("Appearance") {
 #if os(iOS)
                 VStack(alignment: .leading, spacing: Layout.settingSpacing) {
@@ -227,7 +243,7 @@ private enum Layout {
     static let settingSpacing: CGFloat = 8
     static let fieldControlSpacing: CGFloat = 12
     static let width: CGFloat = 540
-    static let height: CGFloat = 620
+    static let height: CGFloat = 680
 }
 
 #Preview {

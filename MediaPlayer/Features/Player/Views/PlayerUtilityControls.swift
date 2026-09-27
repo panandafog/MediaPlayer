@@ -4,14 +4,13 @@
 //
 //
 
-import MusicKit
 import SwiftUI
 
 struct PlayerUtilityControls: View {
-    let song: Song
     let playbackMode: PlaybackMode
     let onSelectPlaybackMode: (PlaybackMode) -> Void
     let onShowQueue: () -> Void
+    let onShowTrackInfo: () -> Void
 
     var body: some View {
         HStack(spacing: Layout.controlSpacing) {
@@ -28,13 +27,16 @@ struct PlayerUtilityControls: View {
                 action: onShowQueue
             )
 
-            TrackShareButton(song: song)
+            UtilityButton(
+                title: "Track Info",
+                systemImage: "info.circle",
+                action: onShowTrackInfo
+            )
         }
     }
 }
 
 struct CompactPlayerOptionsMenu: View {
-    let song: Song
     let playbackMode: PlaybackMode
     let onSelectPlaybackMode: (PlaybackMode) -> Void
     let onShowQueue: () -> Void
@@ -66,17 +68,6 @@ struct CompactPlayerOptionsMenu: View {
 
             Button(action: onShowQueue) {
                 Label("Playing Next", systemImage: "list.bullet")
-            }
-
-            if let url = song.url {
-                ShareLink(item: url) {
-                    Label("Share Track Link", systemImage: "square.and.arrow.up")
-                }
-            } else {
-                Button(action: {}) {
-                    Label("Track Link Unavailable", systemImage: "square.and.arrow.up")
-                }
-                .disabled(true)
             }
         } label: {
             compactMenuLabel
@@ -124,21 +115,6 @@ struct CompactPlayerOptionsMenu: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .buttonStyle(.plain)
-
-            if let url = song.url {
-                ShareLink(item: url) {
-                    Label("Share Track Link", systemImage: "square.and.arrow.up")
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .buttonStyle(.plain)
-            } else {
-                Button(action: {}) {
-                    Label("Track Link Unavailable", systemImage: "square.and.arrow.up")
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .buttonStyle(.plain)
-                .disabled(true)
-            }
         }
         .padding(Layout.popoverPadding)
         .frame(width: Layout.popoverWidth)
@@ -207,39 +183,6 @@ private struct UtilityButton: View {
         .buttonStyle(.glass)
         .buttonBorderShape(.circle)
         .accessibilityLabel(title)
-    }
-}
-
-private struct TrackShareButton: View {
-    let song: Song
-
-    @ViewBuilder
-    var body: some View {
-        if let url = song.url {
-            ShareLink(item: url) {
-                label
-            }
-            .buttonStyle(.glass)
-            .buttonBorderShape(.circle)
-            .accessibilityLabel("Share Track Link")
-        } else {
-            Button(action: {}) {
-                label
-            }
-            .buttonStyle(.glass)
-            .buttonBorderShape(.circle)
-            .disabled(true)
-            .accessibilityLabel("Track Link Unavailable")
-        }
-    }
-
-    private var label: some View {
-        Image(systemName: "square.and.arrow.up")
-            .font(.title3)
-            .frame(
-                width: PlayerControlMetrics.regularButtonSize,
-                height: PlayerControlMetrics.regularButtonSize
-            )
     }
 }
 

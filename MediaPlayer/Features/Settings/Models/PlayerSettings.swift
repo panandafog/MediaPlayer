@@ -18,6 +18,7 @@ enum PlayerSettingsKey {
         "settings.smartArtistSeparatorCharacters"
     static let usesSmartArtistGrouping = "settings.usesSmartArtistGrouping"
     static let usesLiquidGlassInPlayerWindow = "settings.usesLiquidGlassInPlayerWindow"
+    static let resumesPlaybackOnLaunch = "settings.resumesPlaybackOnLaunch"
 }
 
 nonisolated enum SmartArtistGroupingSettings {
