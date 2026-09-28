@@ -20,7 +20,7 @@ struct MediaPlayerApp: App {
 
     var body: some Scene {
 #if os(macOS)
-        Window("Media Player", id: MainWindowNavigation.windowID) {
+        Window("Trackfold", id: MainWindowNavigation.windowID) {
             AppAccentRoot(player: player, theme: artworkAccentTheme) {
                 ContentView(
                     player: player,

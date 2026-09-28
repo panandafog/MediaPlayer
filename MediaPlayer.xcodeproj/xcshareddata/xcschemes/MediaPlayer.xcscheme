@@ -16,7 +16,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "0B5EC99B2FCC2F5400A62A4B"
-               BuildableName = "MediaPlayer.app"
+               BuildableName = "Trackfold.app"
                BlueprintName = "MediaPlayer"
                ReferencedContainer = "container:MediaPlayer.xcodeproj">
             </BuildableReference>
@@ -68,7 +68,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "0B5EC99B2FCC2F5400A62A4B"
-            BuildableName = "MediaPlayer.app"
+            BuildableName = "Trackfold.app"
             BlueprintName = "MediaPlayer"
             ReferencedContainer = "container:MediaPlayer.xcodeproj">
          </BuildableReference>
@@ -85,7 +85,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "0B5EC99B2FCC2F5400A62A4B"
-            BuildableName = "MediaPlayer.app"
+            BuildableName = "Trackfold.app"
             BlueprintName = "MediaPlayer"
             ReferencedContainer = "container:MediaPlayer.xcodeproj">
          </BuildableReference>
