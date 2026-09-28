@@ -86,16 +86,14 @@ struct NowPlayingBar: View {
         }
         .padding(Layout.contentPadding)
         .background {
-            RoundedRectangle(cornerRadius: Layout.cornerRadius, style: .continuous)
+            barShape
                 .fill(.clear)
-                .contentShape(
-                    RoundedRectangle(cornerRadius: Layout.cornerRadius, style: .continuous)
-                )
+                .contentShape(barShape)
                 .onTapGesture(perform: handleBackgroundTap)
         }
         .glassEffect(
             .regular,
-            in: RoundedRectangle(cornerRadius: Layout.cornerRadius, style: .continuous)
+            in: barShape
         )
         .padding(.horizontal, Layout.horizontalPadding)
         .padding(.vertical, Layout.verticalPadding)
@@ -108,6 +106,10 @@ struct NowPlayingBar: View {
 
     private var layout: NowPlayingBarLayout {
         NowPlayingBarLayout(availableWidth: availableWidth)
+    }
+
+    private var barShape: ConcentricRectangle {
+        ConcentricRectangle(uniformMinimumCornerRadius: Layout.minimumCornerRadius)
     }
 
     private func handleBackgroundTap() {
@@ -235,7 +237,7 @@ private enum Layout {
     static let controlSpacing: CGFloat = 10
     static let minimumControlSpacing: CGFloat = 4
     static let contentPadding: CGFloat = 12
-    static let cornerRadius: CGFloat = 22
+    static let minimumCornerRadius: CGFloat = 12
     static let horizontalPadding: CGFloat = 10
     static let verticalPadding: CGFloat = 8
     static let trackSpacing: CGFloat = 12
