@@ -30,8 +30,6 @@ struct PlayerSettingsView: View {
 #if os(iOS)
     @Environment(\.dismiss) private var dismiss
     @FocusState private var isIOSSeparatorFieldFocused: Bool
-    @AppStorage(PlayerSettingsKey.searchBarPosition) private var searchBarPosition =
-        SearchBarPosition.top.rawValue
 #elseif os(macOS)
     @AppStorage(PlayerSettingsKey.usesLiquidGlassInPlayerWindow)
     private var usesLiquidGlassInPlayerWindow = true
@@ -87,25 +85,7 @@ struct PlayerSettingsView: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
 
-#if os(iOS)
-                VStack(alignment: .leading, spacing: Layout.settingSpacing) {
-                    Text("Search Bar Position")
-                        .font(.headline)
-
-                    Picker("Search Bar Position", selection: $searchBarPosition) {
-                        ForEach(SearchBarPosition.allCases) { position in
-                            Text(position.title)
-                                .tag(position.rawValue)
-                        }
-                    }
-                    .labelsHidden()
-                    .pickerStyle(.segmented)
-
-                    Text("Choose where the search bar appears in the music library.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-#elseif os(macOS)
+#if os(macOS)
                 Toggle(
                     "Match Dock Icon to Artwork",
                     isOn: $usesArtworkDockIcon

@@ -30,9 +30,6 @@ struct ContentView: View {
     @AppStorage(PlayerSettingsKey.resumesPlaybackOnLaunch)
     private var resumesPlaybackOnLaunch = false
 #if os(iOS)
-    @AppStorage(PlayerSettingsKey.searchBarPosition) private var searchBarPosition =
-        SearchBarPosition.top.rawValue
-    @FocusState private var isBottomSearchFocused: Bool
     @State private var isShowingSettings = false
     @State private var pendingNowPlayingDestination: LibraryNavigationDestination?
 #endif
@@ -89,9 +86,10 @@ struct ContentView: View {
         }
         .environment(\.playerAccessoryHeight, bottomAccessoryHeight)
 #if os(iOS)
-        .playerSearchable(
+        .searchable(
             text: $library.searchText,
-            usesTopSearch: usesTopSearch
+            placement: .navigationBarDrawer(displayMode: .automatic),
+            prompt: "Track, album, artist, or playlist"
         )
 #endif
         .overlay(alignment: .bottom) {
@@ -256,75 +254,19 @@ struct ContentView: View {
     }
 #endif
 
-#if os(iOS)
-    private var usesTopSearch: Bool {
-        selectedSearchBarPosition == .top
-    }
-#endif
-
     private var bottomAccessory: some View {
-        VStack(spacing: 0) {
-            NowPlayingBarContainer(
-                player: player,
-                onOpenDetails: openNowPlaying,
-                onOpenArtist: openArtist,
-                onOpenAlbum: openAlbum
-            )
-#if os(iOS)
-            if selectedSearchBarPosition == .bottom {
-                bottomSearchBar
-            }
-#endif
-        }
+        NowPlayingBarContainer(
+            player: player,
+            onOpenDetails: openNowPlaying,
+            onOpenArtist: openArtist,
+            onOpenAlbum: openAlbum
+        )
 #if os(iOS)
         .safeAreaPadding(.bottom)
 #endif
     }
 
 #if os(iOS)
-    private var selectedSearchBarPosition: SearchBarPosition {
-        SearchBarPosition(rawValue: searchBarPosition) ?? .top
-    }
-
-    private var bottomSearchBar: some View {
-        HStack(spacing: BottomSearchLayout.spacing) {
-            HStack(spacing: BottomSearchLayout.spacing) {
-                Image(systemName: "magnifyingglass")
-                    .foregroundStyle(.secondary)
-
-                TextField(
-                    "Track, album, artist, or playlist",
-                    text: $library.searchText
-                )
-                .focused($isBottomSearchFocused)
-                .submitLabel(.search)
-
-                if !library.searchText.isEmpty {
-                    Button {
-                        library.searchText = ""
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundStyle(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Clear Search")
-                }
-            }
-            .padding(.horizontal, BottomSearchLayout.fieldHorizontalPadding)
-            .frame(height: BottomSearchLayout.fieldHeight)
-            .glassEffect(.regular, in: Capsule())
-
-            if isBottomSearchFocused {
-                Button("Cancel") {
-                    library.searchText = ""
-                    isBottomSearchFocused = false
-                }
-            }
-        }
-        .padding(.horizontal, BottomSearchLayout.horizontalPadding)
-        .padding(.bottom, BottomSearchLayout.bottomPadding)
-    }
-
     private func openArtistFromNowPlaying(_ song: Song) {
         guard let artist = library.artist(containing: song) else {
             return
@@ -356,36 +298,6 @@ struct ContentView: View {
     }
 #endif
 }
-
-#if os(iOS)
-private enum BottomSearchLayout {
-    static let spacing: CGFloat = 8
-    static let fieldHorizontalPadding: CGFloat = 12
-    static let fieldHeight: CGFloat = 44
-    static let horizontalPadding: CGFloat = 10
-    static let bottomPadding: CGFloat = 8
-}
-#endif
-
-#if os(iOS)
-private extension View {
-    @ViewBuilder
-    func playerSearchable(
-        text: Binding<String>,
-        usesTopSearch: Bool
-    ) -> some View {
-        if usesTopSearch {
-            searchable(
-                text: text,
-                placement: .navigationBarDrawer(displayMode: .always),
-                prompt: "Track, album, artist, or playlist"
-            )
-        } else {
-            self
-        }
-    }
-}
-#endif
 
 #Preview {
 #if os(macOS)

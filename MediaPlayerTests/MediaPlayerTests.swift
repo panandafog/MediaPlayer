@@ -222,7 +222,6 @@ struct MediaPlayerTests {
             false,
             forKey: PlayerSettingsKey.usesLiquidGlassInPlayerWindow
         )
-        firstLaunchDefaults.set("bottom", forKey: PlayerSettingsKey.searchBarPosition)
         firstLaunchDefaults.set(
             true,
             forKey: PlayerSettingsKey.usesSmartArtistGrouping
@@ -238,10 +237,6 @@ struct MediaPlayerTests {
             nextLaunchDefaults.bool(
                 forKey: PlayerSettingsKey.usesLiquidGlassInPlayerWindow
             ) == false
-        )
-        #expect(
-            nextLaunchDefaults.string(forKey: PlayerSettingsKey.searchBarPosition)
-                == "bottom"
         )
         #expect(
             nextLaunchDefaults.bool(forKey: PlayerSettingsKey.usesSmartArtistGrouping)

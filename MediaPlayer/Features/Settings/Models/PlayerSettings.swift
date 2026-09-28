@@ -13,7 +13,6 @@ enum PlayerSettingsKey {
     static let songListShowsAlbum = "settings.library.songListShowsAlbum"
     static let songListShowsDuration = "settings.library.songListShowsDuration"
     static let songListShowsInfoButton = "settings.library.songListShowsInfoButton"
-    static let searchBarPosition = "settings.searchBarPosition"
     static let smartArtistSeparatorCharacters =
         "settings.smartArtistSeparatorCharacters"
     static let usesSmartArtistGrouping = "settings.usesSmartArtistGrouping"
@@ -38,21 +37,3 @@ nonisolated enum SmartArtistGroupingSettings {
         })
     }
 }
-
-#if os(iOS)
-enum SearchBarPosition: String, CaseIterable, Identifiable {
-    case bottom
-    case top
-
-    var id: Self { self }
-
-    var title: String {
-        switch self {
-        case .bottom:
-            "Bottom"
-        case .top:
-            "Top"
-        }
-    }
-}
-#endif
