@@ -125,6 +125,11 @@ struct MediaPlayerTests {
 
     @Test @MainActor func adaptsNowPlayingLayoutToAvailableSize() {
         let examples: [(CGSize, NowPlayingLayout)] = [
+            (CGSize(width: 1512, height: 900), .immersive),
+            (CGSize(width: 1100, height: 700), .immersive),
+            (CGSize(width: 880, height: 560), .immersive),
+            (CGSize(width: 879, height: 700), .fullHorizontal),
+            (CGSize(width: 1000, height: 559), .fullHorizontal),
             (CGSize(width: 390, height: 700), .fullVertical),
             (CGSize(width: 844, height: 390), .fullHorizontal),
             (CGSize(width: 300, height: 449), .compactVertical),
@@ -211,17 +216,13 @@ struct MediaPlayerTests {
         #expect(Set(shuffledItems) == Set(items))
     }
 
-    @Test func persistsPlayerSettingsAcrossLaunches() throws {
+    @Test func persistsSmartArtistGroupingSettingsAcrossLaunches() throws {
         let suiteName = "MediaPlayerTests.\(UUID().uuidString)"
         let firstLaunchDefaults = try #require(UserDefaults(suiteName: suiteName))
         defer {
             firstLaunchDefaults.removePersistentDomain(forName: suiteName)
         }
 
-        firstLaunchDefaults.set(
-            false,
-            forKey: PlayerSettingsKey.usesLiquidGlassInPlayerWindow
-        )
         firstLaunchDefaults.set(
             true,
             forKey: PlayerSettingsKey.usesSmartArtistGrouping
@@ -233,11 +234,6 @@ struct MediaPlayerTests {
 
         let nextLaunchDefaults = try #require(UserDefaults(suiteName: suiteName))
 
-        #expect(
-            nextLaunchDefaults.bool(
-                forKey: PlayerSettingsKey.usesLiquidGlassInPlayerWindow
-            ) == false
-        )
         #expect(
             nextLaunchDefaults.bool(forKey: PlayerSettingsKey.usesSmartArtistGrouping)
         )

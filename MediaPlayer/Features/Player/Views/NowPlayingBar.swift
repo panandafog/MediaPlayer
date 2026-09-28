@@ -35,6 +35,7 @@ struct NowPlayingBar: View {
                 duration: song.duration,
                 onSeek: onSeek
             )
+            .id(song.id)
 
             HStack(spacing: Layout.controlSpacing) {
                 trackSummary
@@ -184,6 +185,7 @@ struct NowPlayingBar: View {
             SongArtwork(
                 artwork: song.artwork,
                 size: Layout.artworkSize,
+                usesHighResolutionSource: true,
                 cornerRadius: max(
                     Layout.minimumArtworkCornerRadius,
                     contentEdgePadding / 2

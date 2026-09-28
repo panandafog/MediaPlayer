@@ -18,12 +18,17 @@ struct SongArtwork: View {
     let size: CGFloat
     var usesHighResolutionSource = false
     var cornerRadius: CGFloat? = nil
+    var highResolutionState: Binding<HighResolutionArtworkState>? = nil
 
     var body: some View {
         Group {
             if let artwork {
                 if usesHighResolutionSource {
-                    HighResolutionArtworkImage(artwork: artwork, size: safeSize)
+                    HighResolutionArtworkImage(
+                        artwork: artwork,
+                        size: safeSize,
+                        highResolutionState: highResolutionState
+                    )
                 } else {
                     ArtworkImage(artwork, width: safeSize, height: safeSize)
                 }
@@ -35,6 +40,8 @@ struct SongArtwork: View {
                     .background(.secondary.opacity(Layout.placeholderOpacity))
             }
         }
+        .frame(width: safeSize, height: safeSize)
+        .clipped()
         .clipShape(
             RoundedRectangle(
                 cornerRadius: cornerRadius ?? Layout.cornerRadius,
@@ -57,25 +64,38 @@ private enum Layout {
     static let cornerRadius: CGFloat = 7
 }
 
+struct HighResolutionArtworkState {
+    fileprivate var image: PlatformArtworkImage?
+    fileprivate var artworkIdentifier: URL?
+    fileprivate var pixelDimension = 0
+
+    init() {}
+}
+
 struct HighResolutionArtworkImage: View {
     @Environment(\.displayScale) private var displayScale
-    @State private var loadedImage: PlatformArtworkImage?
-    @State private var loadedArtworkIdentifier: URL?
-    @State private var loadedPixelDimension = 0
+    @State private var localState = HighResolutionArtworkState()
 
     let artwork: Artwork
     let size: CGFloat
     var maximumPixelDimension: Int? = nil
+    var highResolutionState: Binding<HighResolutionArtworkState>? = nil
 
     var body: some View {
-        Group {
-            if let loadedImage,
-               loadedArtworkIdentifier == artworkIdentifier {
-                swiftUIImage(from: loadedImage)
-                .resizable()
-                .scaledToFill()
-            } else {
+        let state = imageState.wrappedValue
+
+        ZStack {
+            // Load the next artwork underneath the last decoded image so a
+            // placeholder never flashes between adjacent tracks.
+            if state.image == nil || state.artworkIdentifier != artworkIdentifier {
                 ArtworkImage(artwork, width: size, height: size)
+                    .scaledToFill()
+            }
+
+            if let image = state.image {
+                swiftUIImage(from: image)
+                    .resizable()
+                    .scaledToFill()
             }
         }
         .frame(width: size, height: size)
@@ -83,6 +103,10 @@ struct HighResolutionArtworkImage: View {
         .task(id: requestURL) {
             await loadHighResolutionImage()
         }
+    }
+
+    private var imageState: Binding<HighResolutionArtworkState> {
+        highResolutionState ?? $localState
     }
 
     private var requestURL: URL? {
@@ -107,17 +131,14 @@ struct HighResolutionArtworkImage: View {
 
     @MainActor
     private func loadHighResolutionImage() async {
-        if loadedArtworkIdentifier != artworkIdentifier {
-            loadedImage = nil
-            loadedArtworkIdentifier = nil
-            loadedPixelDimension = 0
-        }
-
         guard let requestURL else {
+            discardPreviousArtworkIfNeeded()
             return
         }
 
-        guard loadedPixelDimension < pixelDimension else {
+        let state = imageState.wrappedValue
+        guard state.artworkIdentifier != artworkIdentifier
+                || state.pixelDimension < pixelDimension else {
             return
         }
 
@@ -150,20 +171,35 @@ struct HighResolutionArtworkImage: View {
                     throw ArtworkLoadingError.invalidResponse
                 }
 
-                loadedImage = image
-                loadedArtworkIdentifier = artworkIdentifier
-                loadedPixelDimension = pixelDimension
+                var updatedState = imageState.wrappedValue
+                updatedState.image = image
+                updatedState.artworkIdentifier = artworkIdentifier
+                updatedState.pixelDimension = pixelDimension
+                imageState.wrappedValue = updatedState
                 return
             } catch is CancellationError {
                 return
             } catch {
                 guard attempt + 1 < Loading.maximumAttemptCount else {
+                    discardPreviousArtworkIfNeeded()
                     return
                 }
 
-                try? await Task.sleep(for: Loading.retryDelay)
+                do {
+                    try await Task.sleep(for: Loading.retryDelay)
+                } catch {
+                    return
+                }
             }
         }
+    }
+
+    private func discardPreviousArtworkIfNeeded() {
+        guard imageState.wrappedValue.artworkIdentifier != artworkIdentifier else {
+            return
+        }
+
+        imageState.wrappedValue = HighResolutionArtworkState()
     }
 
     private func swiftUIImage(from image: PlatformArtworkImage) -> Image {
@@ -176,9 +212,9 @@ struct HighResolutionArtworkImage: View {
 }
 
 #if canImport(AppKit)
-private typealias PlatformArtworkImage = NSImage
+fileprivate typealias PlatformArtworkImage = NSImage
 #else
-private typealias PlatformArtworkImage = UIImage
+fileprivate typealias PlatformArtworkImage = UIImage
 #endif
 
 private enum ArtworkLoadingError: Error {

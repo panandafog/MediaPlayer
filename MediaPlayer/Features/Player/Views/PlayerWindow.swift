@@ -20,8 +20,6 @@ struct PlayerWindow: View {
     @ObservedObject var player: MusicPlayerViewModel
     @ObservedObject var library: MusicLibraryViewModel
     @ObservedObject var mainWindowNavigation: MainWindowNavigation
-    @AppStorage(PlayerSettingsKey.usesLiquidGlassInPlayerWindow)
-    private var usesLiquidGlassInPlayerWindow = true
     @State private var isFullScreen = false
     @State private var usesCompactChrome = false
 
@@ -38,7 +36,7 @@ struct PlayerWindow: View {
         .containerBackground(for: .window) {
             if let artwork = player.currentSong?.artwork {
                 PlayerArtworkBackground(artwork: artwork)
-            } else if isFullScreen || !usesLiquidGlassInPlayerWindow {
+            } else if isFullScreen {
                 Color(nsColor: .windowBackgroundColor)
             } else {
                 PlayerWindowGlassBackground()

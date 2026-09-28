@@ -4,8 +4,13 @@
 //
 //
 
+import Combine
+import Foundation
 import MusicKit
 import SwiftUI
+#if os(macOS)
+import AppKit
+#endif
 
 struct NowPlayingView: View {
     @Environment(\.colorScheme) private var colorScheme
@@ -15,6 +20,7 @@ struct NowPlayingView: View {
     let onOpenAlbum: ((Song) -> Void)?
     @State private var isShowingQueue = false
     @State private var detailsSong: Song?
+    @State private var artworkLoadState = HighResolutionArtworkState()
 
     init(
         player: MusicPlayerViewModel,
@@ -34,6 +40,7 @@ struct NowPlayingView: View {
                     isPlaying: player.isPlaying,
                     playbackMode: player.playbackMode,
                     playbackTime: player.playbackTime,
+                    artworkLoadState: $artworkLoadState,
                     accentColor: artworkAccentTheme.color,
                     onPrevious: {
                         Task {
@@ -128,10 +135,12 @@ private enum BackgroundStyle {
 }
 
 private struct NowPlayingContent: View {
+    @Environment(\.accessibilityEnabled) private var accessibilityEnabled
     let song: Song
     let isPlaying: Bool
     let playbackMode: PlaybackMode
     @ObservedObject var playbackTime: PlaybackTimeState
+    let artworkLoadState: Binding<HighResolutionArtworkState>
     let accentColor: Color?
     let onPrevious: () -> Void
     let onTogglePlayback: () -> Void
@@ -142,27 +151,145 @@ private struct NowPlayingContent: View {
     let onShowTrackInfo: () -> Void
     let onOpenArtist: ((Song) -> Void)?
     let onOpenAlbum: ((Song) -> Void)?
+    @StateObject private var immersiveControls = ImmersiveControlsVisibility()
 
     var body: some View {
         GeometryReader { geometry in
             let metrics = NowPlayingLayoutMetrics(availableSize: geometry.size)
 
-            switch metrics.layout {
-            case .fullHorizontal:
-                horizontalLayout(metrics: metrics)
-            case .fullVertical:
-                verticalLayout(metrics: metrics)
-            case .compactHorizontal:
-                compactHorizontalLayout(metrics: metrics, showsTransportControls: true)
-            case .compactVertical:
-                compactVerticalLayout(metrics: metrics, showsTransportControls: true)
-            case .minimalWideHorizontal:
-                minimalWideHorizontalLayout(metrics: metrics)
-            case .minimalHorizontal:
-                compactHorizontalLayout(metrics: metrics, showsTransportControls: false)
-            case .minimalVertical:
-                compactVerticalLayout(metrics: metrics, showsTransportControls: false)
+            Group {
+                switch metrics.layout {
+                case .immersive:
+                    immersiveLayout(metrics: metrics)
+                case .fullHorizontal:
+                    horizontalLayout(metrics: metrics)
+                case .fullVertical:
+                    verticalLayout(metrics: metrics)
+                case .compactHorizontal:
+                    compactHorizontalLayout(metrics: metrics, showsTransportControls: true)
+                case .compactVertical:
+                    compactVerticalLayout(metrics: metrics, showsTransportControls: true)
+                case .minimalWideHorizontal:
+                    minimalWideHorizontalLayout(metrics: metrics)
+                case .minimalHorizontal:
+                    compactHorizontalLayout(metrics: metrics, showsTransportControls: false)
+                case .minimalVertical:
+                    compactVerticalLayout(metrics: metrics, showsTransportControls: false)
+                }
             }
+            .onChange(
+                of: metrics.layout == .immersive && !accessibilityEnabled,
+                initial: true
+            ) { _, shouldAutoHide in
+                if shouldAutoHide {
+                    immersiveControls.activate()
+                } else {
+                    immersiveControls.deactivate()
+                }
+            }
+        }
+        .onDisappear {
+            immersiveControls.deactivate()
+        }
+#if os(macOS)
+        .onReceive(
+            NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)
+        ) { _ in
+            immersiveControls.restoreCursor()
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)
+        ) { _ in
+            immersiveControls.restoreCursor()
+        }
+#endif
+    }
+
+    private func immersiveLayout(metrics: NowPlayingLayoutMetrics) -> some View {
+        VStack(spacing: 0) {
+            HStack(spacing: metrics.immersiveColumnSpacing) {
+                artwork(size: metrics.immersiveArtworkSize)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+
+                immersiveMetadata(metrics: metrics)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+            VStack(spacing: NowPlayingContentMetrics.immersiveControlSpacing) {
+                HStack {
+                    transportControls(spacing: NowPlayingContentMetrics.immersiveTransportSpacing)
+
+                    Spacer(minLength: NowPlayingContentMetrics.immersiveControlSpacing)
+
+                    PlayerUtilityControls(
+                        playbackMode: playbackMode,
+                        onSelectPlaybackMode: onSelectPlaybackMode,
+                        onShowQueue: onShowQueue,
+                        onShowTrackInfo: onShowTrackInfo
+                    )
+                }
+
+                PlaybackProgressSlider(
+                    playbackTime: playbackTime.value,
+                    duration: song.duration,
+                    onSeek: onSeek
+                )
+                .id(song.id)
+                .tint(accentColor ?? .accentColor)
+            }
+            .frame(
+                height: immersiveControls.isVisible
+                    ? metrics.immersiveControlsHeight
+                    : 0,
+                alignment: .bottom
+            )
+            .opacity(immersiveControls.isVisible ? 1 : 0)
+            .allowsHitTesting(immersiveControls.isVisible)
+            .accessibilityHidden(!immersiveControls.isVisible)
+        }
+        .padding(metrics.immersiveOuterPadding)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .contentShape(Rectangle())
+        .onContinuousHover { phase in
+            switch phase {
+            case .active(let location):
+                immersiveControls.pointerMoved(to: location)
+            case .ended:
+                immersiveControls.pointerLeft()
+            }
+        }
+        .simultaneousGesture(
+            TapGesture().onEnded {
+                immersiveControls.recordActivity()
+            }
+        )
+    }
+
+    private func immersiveMetadata(metrics: NowPlayingLayoutMetrics) -> some View {
+        VStack(alignment: .leading, spacing: NowPlayingContentMetrics.immersiveMetadataSpacing) {
+            Text(song.title)
+                .font(.system(size: metrics.immersiveTitleSize, weight: .semibold))
+                .lineLimit(2)
+                .minimumScaleFactor(0.75)
+
+            PlayerMetadataLink(
+                title: song.artistName,
+                font: .system(size: metrics.immersiveArtistSize, weight: .medium),
+                foregroundStyle: .secondary,
+                action: onOpenArtist.map { action in
+                    { action(song) }
+                }
+            )
+
+            PlayerMetadataLink(
+                title: song.albumTitle ?? "Unknown Album",
+                font: .system(size: metrics.immersiveAlbumSize),
+                foregroundStyle: .tertiary,
+                action: onOpenAlbum.map { action in
+                    { action(song) }
+                }
+            )
         }
     }
 
@@ -253,7 +380,8 @@ private struct NowPlayingContent: View {
         SongArtwork(
             artwork: song.artwork,
             size: size,
-            usesHighResolutionSource: true
+            usesHighResolutionSource: true,
+            highResolutionState: artworkLoadState
         )
     }
 
@@ -268,6 +396,7 @@ private struct NowPlayingContent: View {
                 duration: song.duration,
                 onSeek: onSeek
             )
+            .id(song.id)
             .tint(accentColor ?? .accentColor)
 
             transportControls(spacing: metrics.controlSpacing)
@@ -299,6 +428,7 @@ private struct NowPlayingContent: View {
                     duration: song.duration,
                     onSeek: onSeek
                 )
+                .id(song.id)
                 .tint(accentColor ?? .accentColor)
 
                 transportControls(spacing: NowPlayingContentMetrics.compactControlSpacing)
@@ -366,6 +496,9 @@ private struct NowPlayingContent: View {
 private enum NowPlayingContentMetrics {
     static let compactDetailsSpacing: CGFloat = 8
     static let compactControlSpacing: CGFloat = 8
+    static let immersiveControlSpacing: CGFloat = 24
+    static let immersiveTransportSpacing: CGFloat = 20
+    static let immersiveMetadataSpacing: CGFloat = 18
     static let metadataSpacing: CGFloat = 6
     static let wideMinimalArtworkMaximumSize: CGFloat = 96
     static let horizontalTitleLineLimit = 1
@@ -374,7 +507,143 @@ private enum NowPlayingContentMetrics {
     static let titleLineLimit = 2
 }
 
+@MainActor
+private final class ImmersiveControlsVisibility: ObservableObject {
+    @Published private(set) var isVisible = true
+
+    private var isActive = false
+    private var lastActivityAt = Date()
+    private var lastPointerLocation: CGPoint?
+    private var hideTask: Task<Void, Never>?
+#if os(macOS)
+    private var cursorIsHidden = false
+#endif
+
+    func activate() {
+        guard !isActive else {
+            return
+        }
+
+        isActive = true
+        lastActivityAt = Date()
+        isVisible = true
+        scheduleHide()
+    }
+
+    func deactivate() {
+#if os(macOS)
+        restoreCursor()
+#endif
+        guard isActive else {
+            return
+        }
+
+        isActive = false
+        hideTask?.cancel()
+        hideTask = nil
+        lastPointerLocation = nil
+        isVisible = true
+    }
+
+    func recordActivity() {
+#if os(macOS)
+        restoreCursor()
+#endif
+        guard isActive else {
+            return
+        }
+
+        lastActivityAt = Date()
+        if !isVisible {
+            withAnimation(.easeInOut(duration: Constants.fadeDuration)) {
+                isVisible = true
+            }
+        }
+        scheduleHide()
+    }
+
+    func pointerMoved(to location: CGPoint) {
+        guard lastPointerLocation != location else {
+            return
+        }
+
+        lastPointerLocation = location
+        recordActivity()
+    }
+
+    func pointerLeft() {
+        lastPointerLocation = nil
+#if os(macOS)
+        restoreCursor()
+#endif
+    }
+
+#if os(macOS)
+    func restoreCursor() {
+        guard cursorIsHidden else {
+            return
+        }
+
+        NSCursor.setHiddenUntilMouseMoves(false)
+        cursorIsHidden = false
+    }
+
+    private func hideCursorIfNeeded() {
+        guard !cursorIsHidden,
+              lastPointerLocation != nil,
+              NSApp.isActive,
+              let keyWindow = NSApp.keyWindow,
+              keyWindow.frame.contains(NSEvent.mouseLocation) else {
+            return
+        }
+
+        NSCursor.setHiddenUntilMouseMoves(true)
+        cursorIsHidden = true
+    }
+#endif
+
+    private func scheduleHide() {
+        guard hideTask == nil else {
+            return
+        }
+
+        hideTask = Task { @MainActor [weak self] in
+            guard let self else {
+                return
+            }
+
+            while self.isActive {
+                let remaining =
+                    Constants.inactivityInterval
+                        - Date().timeIntervalSince(self.lastActivityAt)
+                if remaining <= 0 {
+                    withAnimation(.easeInOut(duration: Constants.fadeDuration)) {
+                        self.isVisible = false
+                    }
+#if os(macOS)
+                    self.hideCursorIfNeeded()
+#endif
+                    self.hideTask = nil
+                    return
+                }
+
+                do {
+                    try await Task.sleep(nanoseconds: UInt64(remaining * 1_000_000_000))
+                } catch {
+                    return
+                }
+            }
+        }
+    }
+
+    private enum Constants {
+        static let inactivityInterval: TimeInterval = 4
+        static let fadeDuration: TimeInterval = 0.35
+    }
+}
+
 enum NowPlayingLayout: Equatable {
+    case immersive
     case fullVertical
     case fullHorizontal
     case compactVertical
@@ -415,6 +684,11 @@ struct NowPlayingLayoutMetrics {
     let availableSize: CGSize
 
     var layout: NowPlayingLayout {
+        if validWidth >= Constants.immersiveMinimumWidth,
+           validHeight >= Constants.immersiveMinimumHeight {
+            return .immersive
+        }
+
         if usesHorizontalLayout,
            validWidth >= Constants.fullHorizontalMinimumWidth,
            validHeight >= Constants.fullHorizontalMinimumHeight {
@@ -493,6 +767,43 @@ struct NowPlayingLayoutMetrics {
         )
     }
 
+    var immersiveOuterPadding: CGFloat {
+        min(max(validWidth * Constants.immersiveOuterPaddingRatio, 36), 80)
+    }
+
+    var immersiveColumnSpacing: CGFloat {
+        min(max(validWidth * Constants.immersiveColumnSpacingRatio, 48), 88)
+    }
+
+    var immersiveControlsHeight: CGFloat {
+        Constants.immersiveControlsHeight
+    }
+
+    var immersiveArtworkSize: CGFloat {
+        let widthLimit =
+            (validWidth - immersiveOuterPadding * 2 - immersiveColumnSpacing) / 2
+        let heightLimit =
+            (validHeight - immersiveOuterPadding * 2 - immersiveControlsHeight)
+                * Constants.immersiveArtworkHeightRatio
+
+        return max(
+            min(widthLimit, heightLimit, Constants.maximumImmersiveArtworkSize),
+            Constants.minimumDimension
+        )
+    }
+
+    var immersiveTitleSize: CGFloat {
+        min(max(validWidth * 0.038, 42), 72)
+    }
+
+    var immersiveArtistSize: CGFloat {
+        min(max(validWidth * 0.022, 26), 40)
+    }
+
+    var immersiveAlbumSize: CGFloat {
+        min(max(validWidth * 0.017, 21), 30)
+    }
+
     var compactPadding: CGFloat {
         usesConstrainedCompactLayout
             ? Constants.constrainedCompactPadding
@@ -548,6 +859,13 @@ struct NowPlayingLayoutMetrics {
     }
 
     private enum Constants {
+        static let immersiveMinimumWidth: CGFloat = 880
+        static let immersiveMinimumHeight: CGFloat = 560
+        static let immersiveOuterPaddingRatio: CGFloat = 0.04
+        static let immersiveColumnSpacingRatio: CGFloat = 0.05
+        static let immersiveControlsHeight: CGFloat = 150
+        static let immersiveArtworkHeightRatio: CGFloat = 0.85
+        static let maximumImmersiveArtworkSize: CGFloat = 720
         static let fullHorizontalMinimumWidth: CGFloat = 520
         static let fullHorizontalMinimumHeight: CGFloat = 300
         static let fullVerticalMinimumWidth: CGFloat = 300

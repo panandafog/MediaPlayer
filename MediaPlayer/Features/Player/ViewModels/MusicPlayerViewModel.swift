@@ -21,6 +21,13 @@ private enum PlaybackPolicy {
     static let meaningfulProgressChange: TimeInterval = 2
     static let playbackVerificationAttemptCount = 5
     static let playbackVerificationDelay: UInt64 = 150_000_000
+    static let newTrackProgressTolerance: TimeInterval = 1.5
+    static let newTrackProgressGuardInterval: TimeInterval = 5
+}
+
+private struct PlaybackTimeTransition {
+    let songID: MusicItemID
+    let startedAt: Date
 }
 
 @MainActor
@@ -52,8 +59,10 @@ final class MusicPlayerViewModel: ObservableObject {
     private var songIDsByQueueEntryID: [String: MusicItemID] = [:]
     private var didAttemptPlaybackRestoration = false
     private var isRestoringPlayback = false
+    private var isReplacingPlaybackQueue = false
     private var lastPersistedSongID: MusicItemID?
     private var lastPersistedPlaybackTime: TimeInterval?
+    private var playbackTimeTransition: PlaybackTimeTransition?
 
     init(restorationStore: PlaybackRestorationStore? = nil) {
         self.restorationStore = restorationStore ?? PlaybackRestorationStore()
@@ -169,6 +178,7 @@ final class MusicPlayerViewModel: ObservableObject {
             time,
             duration: currentSong?.duration
         )
+        playbackTimeTransition = nil
         player.playbackTime = normalizedTime
         playbackTime.update(to: normalizedTime)
         persistPlaybackSnapshot(force: true)
@@ -320,6 +330,10 @@ final class MusicPlayerViewModel: ObservableObject {
     }
 
     private func syncQueueState() {
+        guard !isReplacingPlaybackQueue else {
+            return
+        }
+
         syncCurrentSongFromPlayerQueue()
     }
 
@@ -354,12 +368,8 @@ final class MusicPlayerViewModel: ObservableObject {
             return
         }
 
-        let didCurrentSongChange = currentSong?.id != song.id
         currentSongIndex = nil
         updateCurrentSong(song)
-        if didCurrentSongChange {
-            playbackTime.update(to: 0)
-        }
     }
 
     private func selectCurrentSongFromQueue(at index: Int) {
@@ -368,21 +378,34 @@ final class MusicPlayerViewModel: ObservableObject {
         }
 
         let song = queueSongs[index]
-        let didCurrentSongChange = currentSong?.id != song.id
         currentSongIndex = index
         updateCurrentSong(song)
-        if didCurrentSongChange {
-            playbackTime.update(to: 0)
-        }
     }
 
     private func syncPlaybackTime() {
-        guard !isRestoringPlayback else {
+        guard !isRestoringPlayback, !isReplacingPlaybackQueue else {
             return
         }
 
+        let nativeTime = player.playbackTime
+        if let transition = playbackTimeTransition,
+           transition.songID == currentSong?.id {
+            let elapsed = max(Date().timeIntervalSince(transition.startedAt), 0)
+            // The queue can identify the new song before MusicKit stops reporting
+            // the previous song's position. Keep the new slider at zero meanwhile.
+            guard nativeTime.isFinite,
+                  nativeTime >= 0,
+                  nativeTime <= elapsed + PlaybackPolicy.newTrackProgressTolerance else {
+                return
+            }
+
+            if elapsed >= PlaybackPolicy.newTrackProgressGuardInterval {
+                playbackTimeTransition = nil
+            }
+        }
+
         let normalizedTime = PlaybackProgress.normalizedTime(
-            player.playbackTime,
+            nativeTime,
             duration: currentSong?.duration
         )
         playbackTime.update(to: normalizedTime)
@@ -410,15 +433,26 @@ final class MusicPlayerViewModel: ObservableObject {
             return
         }
 
+        beginNewTrack(at: song)
         currentSong = song
         currentSongState.update(to: song.id)
+    }
+
+    private func beginNewTrack(at song: Song) {
+        playbackTimeTransition = PlaybackTimeTransition(
+            songID: song.id,
+            startedAt: Date()
+        )
+        playbackTime.update(to: 0)
     }
 
     private func setPlaybackQueue(_ queue: [Song], startingAt song: Song) {
         queueSongs = queue
         currentSongIndex = queue.firstIndex(where: { $0.id == song.id })
+        if currentSong?.id == song.id {
+            beginNewTrack(at: song)
+        }
         updateCurrentSong(song)
-        playbackTime.update(to: 0)
         persistPlaybackSnapshot(force: true)
     }
 
@@ -452,6 +486,13 @@ final class MusicPlayerViewModel: ObservableObject {
         requestID: UUID,
         playbackTime: TimeInterval? = nil
     ) async throws {
+        isReplacingPlaybackQueue = true
+        defer {
+            if isCurrentPlaybackRequest(requestID) {
+                isReplacingPlaybackQueue = false
+            }
+        }
+
         player.stop()
         try await Task.sleep(nanoseconds: 100_000_000)
 
@@ -461,6 +502,7 @@ final class MusicPlayerViewModel: ObservableObject {
 
         try ensureCurrentPlaybackRequest(requestID)
         if let playbackTime {
+            playbackTimeTransition = nil
             player.playbackTime = playbackTime
             self.playbackTime.update(to: playbackTime)
         }

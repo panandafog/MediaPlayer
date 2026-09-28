@@ -31,8 +31,6 @@ struct PlayerSettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @FocusState private var isIOSSeparatorFieldFocused: Bool
 #elseif os(macOS)
-    @AppStorage(PlayerSettingsKey.usesLiquidGlassInPlayerWindow)
-    private var usesLiquidGlassInPlayerWindow = true
     @AppStorage(PlayerSettingsKey.usesArtworkDockIcon)
     private var usesArtworkDockIcon = true
 #endif
@@ -96,11 +94,6 @@ struct PlayerSettingsView: View {
                 )
                 .font(.footnote)
                 .foregroundStyle(.secondary)
-
-                Toggle(
-                    "Use Liquid Glass in Player Window",
-                    isOn: $usesLiquidGlassInPlayerWindow
-                )
 #endif
             }
 
