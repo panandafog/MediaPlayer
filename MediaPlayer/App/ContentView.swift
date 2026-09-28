@@ -35,70 +35,38 @@ struct ContentView: View {
 #endif
 
     var body: some View {
-        NavigationStack(path: $navigationPath) {
-            MusicLibraryView(
-                library: library,
-                currentSongState: player.currentSongState,
-                onPlay: play
-            )
-            .navigationTitle(library.section.title)
-            .toolbar {
-#if os(macOS)
-                ToolbarItemGroup(placement: .primaryAction) {
-                    if library.authorizationStatus == .authorized,
-                       navigationPath.isEmpty {
-                        MacLibrarySearchField(text: $library.searchText)
-                            .frame(width: 230)
-                    }
-
-                    if library.authorizationStatus == .authorized {
-                        libraryMenu
-                    }
-
-                    SettingsLink {
-                        Label("Settings", systemImage: "gearshape")
-                    }
-                }
-#else
-                if library.authorizationStatus == .authorized {
-                    ToolbarItem(placement: .primaryAction) {
-                        libraryMenu
-                    }
-                }
-
-                ToolbarItem(placement: .secondaryAction) {
-                    Button {
-                        isShowingSettings = true
-                    } label: {
-                        Label("Settings", systemImage: "gearshape")
-                    }
-                }
-#endif
-            }
-            .navigationDestination(for: LibraryNavigationDestination.self) { destination in
-                LibraryNavigationDestinationView(
-                    destination: destination,
-                    library: library,
-                    currentSongState: player.currentSongState,
-                    onPlay: play
-                )
-            }
-        }
-        .environment(\.playerAccessoryHeight, bottomAccessoryHeight)
 #if os(iOS)
-        .searchable(
-            text: $library.searchText,
-            placement: .navigationBarDrawer(displayMode: .automatic),
-            prompt: "Track, album, artist, or playlist"
-        )
+        GeometryReader { geometry in
+            let bottomInset = geometry.safeAreaInsets.bottom
+            // A keyboard inset is much larger than the device's bottom edge inset.
+            let deviceBottomInset =
+                bottomInset < geometry.size.height / 4 ? bottomInset : 0
+
+            content(bottomSafeAreaInset: deviceBottomInset)
+                .frame(
+                    width: geometry.size.width,
+                    height: geometry.size.height + deviceBottomInset,
+                    alignment: .top
+                )
+        }
+#else
+        content(bottomSafeAreaInset: 0)
 #endif
-        .overlay(alignment: .bottom) {
-            bottomAccessory
-                .onGeometryChange(for: CGFloat.self) { geometry in
-                    geometry.size.height
-                } action: { height in
-                    bottomAccessoryHeight = height
+    }
+
+    private func content(bottomSafeAreaInset: CGFloat) -> some View {
+        Group {
+#if os(iOS)
+            ZStack(alignment: .bottom) {
+                navigationContent
+                bottomAccessory(bottomSafeAreaInset: bottomSafeAreaInset)
+            }
+#else
+            navigationContent
+                .overlay(alignment: .bottom) {
+                    bottomAccessory(bottomSafeAreaInset: bottomSafeAreaInset)
                 }
+#endif
         }
 #if os(iOS)
         .sheet(
@@ -163,6 +131,66 @@ struct ContentView: View {
         } message: {
             Text(library.errorMessage ?? "")
         }
+    }
+
+    private var navigationContent: some View {
+        NavigationStack(path: $navigationPath) {
+            MusicLibraryView(
+                library: library,
+                currentSongState: player.currentSongState,
+                onPlay: play
+            )
+            .navigationTitle(library.section.title)
+            .toolbar {
+#if os(macOS)
+                ToolbarItemGroup(placement: .primaryAction) {
+                    if library.authorizationStatus == .authorized,
+                       navigationPath.isEmpty {
+                        MacLibrarySearchField(text: $library.searchText)
+                            .frame(width: 230)
+                    }
+
+                    if library.authorizationStatus == .authorized {
+                        libraryMenu
+                    }
+
+                    SettingsLink {
+                        Label("Settings", systemImage: "gearshape")
+                    }
+                }
+#else
+                if library.authorizationStatus == .authorized {
+                    ToolbarItem(placement: .primaryAction) {
+                        libraryMenu
+                    }
+                }
+
+                ToolbarItem(placement: .secondaryAction) {
+                    Button {
+                        isShowingSettings = true
+                    } label: {
+                        Label("Settings", systemImage: "gearshape")
+                    }
+                }
+#endif
+            }
+            .navigationDestination(for: LibraryNavigationDestination.self) { destination in
+                LibraryNavigationDestinationView(
+                    destination: destination,
+                    library: library,
+                    currentSongState: player.currentSongState,
+                    onPlay: play
+                )
+            }
+        }
+        .environment(\.playerAccessoryHeight, bottomAccessoryHeight)
+#if os(iOS)
+        .searchable(
+            text: $library.searchText,
+            placement: .navigationBarDrawer(displayMode: .automatic),
+            prompt: "Track, album, artist, or playlist"
+        )
+#endif
     }
 
     private func play(_ song: Song, in queue: [Song]) {
@@ -254,16 +282,19 @@ struct ContentView: View {
     }
 #endif
 
-    private var bottomAccessory: some View {
+    private func bottomAccessory(bottomSafeAreaInset: CGFloat) -> some View {
         NowPlayingBarContainer(
             player: player,
+            bottomSafeAreaInset: bottomSafeAreaInset,
             onOpenDetails: openNowPlaying,
             onOpenArtist: openArtist,
             onOpenAlbum: openAlbum
         )
-#if os(iOS)
-        .safeAreaPadding(.bottom)
-#endif
+        .onGeometryChange(for: CGFloat.self) { geometry in
+            geometry.size.height
+        } action: { height in
+            bottomAccessoryHeight = height
+        }
     }
 
 #if os(iOS)

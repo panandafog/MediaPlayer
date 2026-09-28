@@ -17,6 +17,7 @@ struct SongArtwork: View {
     let artwork: Artwork?
     let size: CGFloat
     var usesHighResolutionSource = false
+    var cornerRadius: CGFloat? = nil
 
     var body: some View {
         Group {
@@ -35,7 +36,10 @@ struct SongArtwork: View {
             }
         }
         .clipShape(
-            RoundedRectangle(cornerRadius: Layout.cornerRadius, style: .continuous)
+            RoundedRectangle(
+                cornerRadius: cornerRadius ?? Layout.cornerRadius,
+                style: .continuous
+            )
         )
     }
 

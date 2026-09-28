@@ -9,6 +9,7 @@ import SwiftUI
 
 struct NowPlayingBarContainer: View {
     @ObservedObject var player: MusicPlayerViewModel
+    let bottomSafeAreaInset: CGFloat
     let onOpenDetails: () -> Void
     let onOpenArtist: (Song) -> Void
     let onOpenAlbum: (Song) -> Void
@@ -23,6 +24,7 @@ struct NowPlayingBarContainer: View {
                     isPlaying: player.isPlaying,
                     playbackMode: player.playbackMode,
                     playbackTime: player.playbackTime,
+                    bottomSafeAreaInset: bottomSafeAreaInset,
                     onPrevious: {
                         Task {
                             await player.skipToPreviousSong()
