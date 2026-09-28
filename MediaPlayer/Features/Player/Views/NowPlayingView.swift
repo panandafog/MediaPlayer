@@ -136,6 +136,7 @@ private enum BackgroundStyle {
 
 private struct NowPlayingContent: View {
     @Environment(\.accessibilityEnabled) private var accessibilityEnabled
+    @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion
     let song: Song
     let isPlaying: Bool
     let playbackMode: PlaybackMode
@@ -152,31 +153,44 @@ private struct NowPlayingContent: View {
     let onOpenArtist: ((Song) -> Void)?
     let onOpenAlbum: ((Song) -> Void)?
     @StateObject private var immersiveControls = ImmersiveControlsVisibility()
+    @Namespace private var layoutTransition
 
     var body: some View {
         GeometryReader { geometry in
             let metrics = NowPlayingLayoutMetrics(availableSize: geometry.size)
 
-            Group {
+            ZStack {
                 switch metrics.layout {
                 case .immersive:
                     immersiveLayout(metrics: metrics)
+                        .transition(.opacity)
                 case .fullHorizontal:
                     horizontalLayout(metrics: metrics)
+                        .transition(.opacity)
                 case .fullVertical:
                     verticalLayout(metrics: metrics)
+                        .transition(.opacity)
                 case .compactHorizontal:
                     compactHorizontalLayout(metrics: metrics, showsTransportControls: true)
+                        .transition(.opacity)
                 case .compactVertical:
                     compactVerticalLayout(metrics: metrics, showsTransportControls: true)
+                        .transition(.opacity)
                 case .minimalWideHorizontal:
                     minimalWideHorizontalLayout(metrics: metrics)
+                        .transition(.opacity)
                 case .minimalHorizontal:
                     compactHorizontalLayout(metrics: metrics, showsTransportControls: false)
+                        .transition(.opacity)
                 case .minimalVertical:
                     compactVerticalLayout(metrics: metrics, showsTransportControls: false)
+                        .transition(.opacity)
                 }
             }
+            .animation(
+                accessibilityReduceMotion ? nil : .easeInOut(duration: 0.15),
+                value: metrics.layout
+            )
             .onChange(
                 of: metrics.layout == .immersive && !accessibilityEnabled,
                 initial: true
@@ -383,6 +397,7 @@ private struct NowPlayingContent: View {
             usesHighResolutionSource: true,
             highResolutionState: artworkLoadState
         )
+        .matchedGeometryEffect(id: "artwork", in: layoutTransition)
     }
 
     private func detailsAndControls(metrics: NowPlayingLayoutMetrics) -> some View {

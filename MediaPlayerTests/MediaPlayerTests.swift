@@ -171,6 +171,39 @@ struct MediaPlayerTests {
         #expect(PlaybackProgress.normalizedTime(.infinity, duration: 120) == 0)
     }
 
+    @Test func ignoresIntermediatePlaybackTimesAfterSeeking() {
+        let start = Date(timeIntervalSince1970: 1_000)
+        let forwardSeek = PlaybackSeekTransition(targetTime: 60, startedAt: start)
+        let backwardSeek = PlaybackSeekTransition(targetTime: 20, startedAt: start)
+
+        #expect(
+            !forwardSeek.shouldUseNativeTime(
+                30, at: start.addingTimeInterval(0.2), isPlaying: true
+            )
+        )
+        #expect(
+            forwardSeek.shouldUseNativeTime(
+                60.5, at: start.addingTimeInterval(0.2), isPlaying: true
+            )
+        )
+        #expect(
+            forwardSeek.shouldUseNativeTime(
+                62, at: start.addingTimeInterval(1), isPlaying: true
+            )
+        )
+        #expect(
+            !backwardSeek.shouldUseNativeTime(
+                70, at: start.addingTimeInterval(0.2), isPlaying: false
+            )
+        )
+        #expect(
+            backwardSeek.shouldUseNativeTime(
+                20, at: start.addingTimeInterval(0.2), isPlaying: false
+            )
+        )
+        #expect(forwardSeek.isExpired(at: start.addingTimeInterval(3)))
+    }
+
     @Test func limitsPlaybackQueueAroundSelectedItem() {
         let items = Array(0..<1_000)
         let window = PlaybackQueueWindow.items(from: items, startingAt: 500)

@@ -14,6 +14,19 @@ struct PlaybackProgressSlider: View {
     @State private var sliderValue: TimeInterval = 0
     @State private var isEditing = false
 
+    init(
+        playbackTime: TimeInterval,
+        duration: TimeInterval?,
+        onSeek: @escaping (TimeInterval) -> Void
+    ) {
+        self.playbackTime = playbackTime
+        self.duration = duration
+        self.onSeek = onSeek
+        _sliderValue = State(
+            initialValue: PlaybackProgress.normalizedTime(playbackTime, duration: duration)
+        )
+    }
+
     var body: some View {
         VStack(spacing: Layout.spacing) {
             Slider(

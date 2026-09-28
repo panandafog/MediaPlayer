@@ -23,11 +23,38 @@ private enum PlaybackPolicy {
     static let playbackVerificationDelay: UInt64 = 150_000_000
     static let newTrackProgressTolerance: TimeInterval = 1.5
     static let newTrackProgressGuardInterval: TimeInterval = 5
+    static let seekProgressTolerance: TimeInterval = 1.5
+    static let seekProgressGuardInterval: TimeInterval = 3
 }
 
 private struct PlaybackTimeTransition {
     let songID: MusicItemID
     let startedAt: Date
+}
+
+struct PlaybackSeekTransition {
+    let targetTime: TimeInterval
+    let startedAt: Date
+
+    func shouldUseNativeTime(
+        _ nativeTime: TimeInterval,
+        at date: Date,
+        isPlaying: Bool
+    ) -> Bool {
+        let elapsed = max(date.timeIntervalSince(startedAt), 0)
+        guard elapsed < PlaybackPolicy.seekProgressGuardInterval else {
+            return true
+        }
+
+        let latestExpectedTime = targetTime + (isPlaying ? elapsed : 0)
+        return nativeTime.isFinite
+            && nativeTime >= targetTime - PlaybackPolicy.seekProgressTolerance
+            && nativeTime <= latestExpectedTime + PlaybackPolicy.seekProgressTolerance
+    }
+
+    func isExpired(at date: Date) -> Bool {
+        date.timeIntervalSince(startedAt) >= PlaybackPolicy.seekProgressGuardInterval
+    }
 }
 
 @MainActor
@@ -63,6 +90,7 @@ final class MusicPlayerViewModel: ObservableObject {
     private var lastPersistedSongID: MusicItemID?
     private var lastPersistedPlaybackTime: TimeInterval?
     private var playbackTimeTransition: PlaybackTimeTransition?
+    private var playbackSeekTransition: PlaybackSeekTransition?
 
     init(restorationStore: PlaybackRestorationStore? = nil) {
         self.restorationStore = restorationStore ?? PlaybackRestorationStore()
@@ -179,6 +207,10 @@ final class MusicPlayerViewModel: ObservableObject {
             duration: currentSong?.duration
         )
         playbackTimeTransition = nil
+        playbackSeekTransition = PlaybackSeekTransition(
+            targetTime: normalizedTime,
+            startedAt: Date()
+        )
         player.playbackTime = normalizedTime
         playbackTime.update(to: normalizedTime)
         persistPlaybackSnapshot(force: true)
@@ -388,6 +420,23 @@ final class MusicPlayerViewModel: ObservableObject {
         }
 
         let nativeTime = player.playbackTime
+        if let seekTransition = playbackSeekTransition {
+            let now = Date()
+            guard seekTransition.shouldUseNativeTime(
+                nativeTime,
+                at: now,
+                isPlaying: isPlaying
+            ) else {
+                // MusicKit can briefly publish an old or intermediate position
+                // after a seek. Keep the slider at the position the user chose.
+                return
+            }
+
+            if seekTransition.isExpired(at: now) {
+                playbackSeekTransition = nil
+            }
+        }
+
         if let transition = playbackTimeTransition,
            transition.songID == currentSong?.id {
             let elapsed = max(Date().timeIntervalSince(transition.startedAt), 0)
@@ -439,6 +488,7 @@ final class MusicPlayerViewModel: ObservableObject {
     }
 
     private func beginNewTrack(at song: Song) {
+        playbackSeekTransition = nil
         playbackTimeTransition = PlaybackTimeTransition(
             songID: song.id,
             startedAt: Date()
@@ -503,6 +553,7 @@ final class MusicPlayerViewModel: ObservableObject {
         try ensureCurrentPlaybackRequest(requestID)
         if let playbackTime {
             playbackTimeTransition = nil
+            playbackSeekTransition = nil
             player.playbackTime = playbackTime
             self.playbackTime.update(to: playbackTime)
         }
