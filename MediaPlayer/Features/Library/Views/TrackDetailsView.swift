@@ -11,6 +11,10 @@ struct TrackDetailsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var details: TrackDetails
     @State private var isLoading = true
+#if os(macOS)
+    @State private var isShowingEditor = false
+    @State private var didSaveMetadata = false
+#endif
 
     let song: Song
 
@@ -33,6 +37,13 @@ struct TrackDetailsView: View {
             }
             .navigationTitle("Track Info")
             .toolbar {
+#if os(macOS)
+                ToolbarItem(placement: .primaryAction) {
+                    Button("Edit", systemImage: "pencil") {
+                        isShowingEditor = true
+                    }
+                }
+#endif
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done", action: dismiss.callAsFunction)
                 }
@@ -45,6 +56,15 @@ struct TrackDetailsView: View {
         }
 #if os(macOS)
         .frame(minWidth: 420, minHeight: 540)
+        .sheet(isPresented: $isShowingEditor, onDismiss: {
+            if didSaveMetadata {
+                dismiss()
+            }
+        }) {
+            TrackMetadataEditorView(song: song) {
+                didSaveMetadata = true
+            }
+        }
 #endif
     }
 

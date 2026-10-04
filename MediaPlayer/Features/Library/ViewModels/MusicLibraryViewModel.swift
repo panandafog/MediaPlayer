@@ -51,6 +51,10 @@ final class MusicLibraryViewModel: ObservableObject {
     private var filteringTask: Task<Void, Never>?
     private var groupingTask: Task<Void, Never>?
     private var hasLoadedLibrary = false
+#if os(macOS)
+    private var metadataChangesCancellable: AnyCancellable?
+    private var needsReloadAfterCurrentLoad = false
+#endif
     private var smartArtistSeparatorCharacters =
         SmartArtistGroupingSettings.defaultSeparatorCharacters
     private var usesSmartArtistGrouping = false
@@ -71,6 +75,19 @@ final class MusicLibraryViewModel: ObservableObject {
         section = defaults.string(forKey: PlayerSettingsKey.librarySection)
             .flatMap(MusicLibrarySection.init(rawValue:))
             ?? .songs
+#if os(macOS)
+        metadataChangesCancellable = NotificationCenter.default.publisher(for: .musicTrackMetadataDidChange)
+            .sink { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    if self.isLoading {
+                        self.needsReloadAfterCurrentLoad = true
+                    } else {
+                        await self.loadLibrary()
+                    }
+                }
+            }
+#endif
     }
 
     var sortedSongs: [Song] {
@@ -237,6 +254,12 @@ final class MusicLibraryViewModel: ObservableObject {
 
         defer {
             isLoading = false
+#if os(macOS)
+            if needsReloadAfterCurrentLoad {
+                needsReloadAfterCurrentLoad = false
+                Task { await self.loadLibrary() }
+            }
+#endif
         }
 
         do {

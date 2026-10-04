@@ -10,6 +10,7 @@
 		0B21008F2FDC5E00003D6615 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 0B21008E2FDC5E00003D6615 /* AppIcon.icon */; };
 		0B2100902FDC5E00003D6615 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 0B21008E2FDC5E00003D6615 /* AppIcon.icon */; };
 		0B2100912FDC5E00003D6615 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 0B21008E2FDC5E00003D6615 /* AppIcon.icon */; };
+		0B8A00012FDD000000000001 /* TagLibSwift in Frameworks */ = {isa = PBXBuildFile; productRef = 0B8A00032FDD000000000001 /* TagLibSwift */; platformFilter = macos; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -72,6 +73,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0B8A00012FDD000000000001 /* TagLibSwift in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -133,6 +135,7 @@
 			);
 			name = MediaPlayer;
 			packageProductDependencies = (
+				0B8A00032FDD000000000001 /* TagLibSwift */,
 			);
 			productName = Trackfold;
 			productReference = 0B5EC99C2FCC2F5400A62A4B /* Trackfold.app */;
@@ -220,6 +223,9 @@
 			productRefGroup = 0B5EC99D2FCC2F5400A62A4B /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
+			packageReferences = (
+				0B8A00022FDD000000000001 /* XCRemoteSwiftPackageReference "TagLibSwift" */,
+			);
 			targets = (
 				0B5EC99B2FCC2F5400A62A4B /* MediaPlayer */,
 				0B5EC9A82FCC2F5500A62A4B /* MediaPlayerTests */,
@@ -414,13 +420,14 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "Trackfold-macOS.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = 3HG9ZBM8AV;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
-				ENABLE_USER_SELECTED_FILES = readonly;
+			ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
 				"INFOPLIST_FILE[sdk=iphoneos*]" = "MediaPlayer/Info-iOS.plist";
 				"INFOPLIST_FILE[sdk=iphonesimulator*]" = "MediaPlayer/Info-iOS.plist";
@@ -452,7 +459,8 @@
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
-				SWIFT_EMIT_LOC_STRINGS = YES;
+			SWIFT_EMIT_LOC_STRINGS = YES;
+			SWIFT_OBJC_INTEROP_MODE = objcxx;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,7";
@@ -465,13 +473,14 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "Trackfold-macOS.entitlements";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
+				CURRENT_PROJECT_VERSION = 6;
 				DEVELOPMENT_TEAM = 3HG9ZBM8AV;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
-				ENABLE_USER_SELECTED_FILES = readonly;
+			ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
 				"INFOPLIST_FILE[sdk=iphoneos*]" = "MediaPlayer/Info-iOS.plist";
 				"INFOPLIST_FILE[sdk=iphonesimulator*]" = "MediaPlayer/Info-iOS.plist";
@@ -503,7 +512,8 @@
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
-				SWIFT_EMIT_LOC_STRINGS = YES;
+			SWIFT_EMIT_LOC_STRINGS = YES;
+			SWIFT_OBJC_INTEROP_MODE = objcxx;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,7";
@@ -529,6 +539,7 @@
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_OBJC_INTEROP_MODE = objcxx;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,7";
@@ -555,6 +566,7 @@
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_OBJC_INTEROP_MODE = objcxx;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2,7";
@@ -653,6 +665,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		0B8A00022FDD000000000001 /* XCRemoteSwiftPackageReference "TagLibSwift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/jeonghi/TagLibSwift.git";
+			requirement = {
+				kind = exactVersion;
+				version = "0.2.0-rc.1";
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		0B8A00032FDD000000000001 /* TagLibSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0B8A00022FDD000000000001 /* XCRemoteSwiftPackageReference "TagLibSwift" */;
+			productName = TagLibSwift;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 0B5EC9942FCC2F5400A62A4B /* Project object */;
 }

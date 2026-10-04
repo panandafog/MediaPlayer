@@ -155,6 +155,23 @@ struct MediaPlayerTests {
     }
 
 #if os(macOS)
+    @Test func matchesOnlyTheExpectedAudioFile() {
+        let identity = SongFileIdentity(
+            title: "Track", artist: "Artist", album: "Album",
+            duration: 200, trackNumber: 2, discNumber: 1
+        )
+        let metadata = EditableTrackMetadata(
+            fileURL: URL(fileURLWithPath: "/tmp/track.mp3"),
+            title: "Track", artist: "Artist", album: "Album", albumArtist: "Artist",
+            composer: "", genre: "", trackNumber: 2, discNumber: 1
+        )
+        #expect(identity.matches(metadata, duration: 201))
+        #expect(!identity.matches(metadata, duration: 210))
+        var other = metadata
+        other.artist = "Different Artist"
+        #expect(!identity.matches(other, duration: 200))
+    }
+
     @Test @MainActor func reducesPlayerWindowChromeOnlyForSmallWindows() {
         #expect(PlayerWindowChromeLayout.usesCompactChrome(for: CGSize(width: 180, height: 100)))
         #expect(PlayerWindowChromeLayout.usesCompactChrome(for: CGSize(width: 440, height: 169)))
@@ -202,6 +219,42 @@ struct MediaPlayerTests {
             )
         )
         #expect(forwardSeek.isExpired(at: start.addingTimeInterval(3)))
+    }
+
+    @Test func renamesOnlyTheSelectedArtistInCollaborations() {
+        let separators = ",;&/"
+        #expect(
+            ArtistCreditRewriter.replacing(
+                "Gorilla Zippo",
+                in: "Gorilla Zippo feat. Anikv & Richie",
+                with: "New Name",
+                separatorCharacters: separators
+            ) == "New Name feat. Anikv & Richie"
+        )
+        #expect(
+            ArtistCreditRewriter.replacing(
+                "Richie",
+                in: "Gorilla Zippo feat. Anikv & Richie",
+                with: "R",
+                separatorCharacters: separators
+            ) == "Gorilla Zippo feat. Anikv & R"
+        )
+        #expect(
+            ArtistCreditRewriter.replacing(
+                "Ann",
+                in: "Anna & Bob",
+                with: "A",
+                separatorCharacters: separators
+            ) == nil
+        )
+        #expect(
+            ArtistCreditRewriter.replacing(
+                "Earth, Wind & Fire",
+                in: "Earth, Wind & Fire",
+                with: "New Name",
+                separatorCharacters: separators
+            ) == "New Name"
+        )
     }
 
     @Test func limitsPlaybackQueueAroundSelectedItem() {

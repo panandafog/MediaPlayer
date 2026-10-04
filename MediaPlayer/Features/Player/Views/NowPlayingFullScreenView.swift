@@ -20,7 +20,8 @@ struct NowPlayingFullScreenView: View {
             NowPlayingView(
                 player: player,
                 onOpenArtist: onOpenArtist,
-                onOpenAlbum: onOpenAlbum
+                onOpenAlbum: onOpenAlbum,
+                animatesLayoutChanges: false
             )
                 .toolbar {
                     ToolbarItem(placement: .topBarLeading) {

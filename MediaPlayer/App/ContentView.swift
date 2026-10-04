@@ -111,6 +111,9 @@ struct ContentView: View {
             navigationPath.removeAll()
             updateSmartArtistGrouping()
         }
+        .onReceive(library.$songs) { songs in
+            player.refreshMetadata(from: songs)
+        }
 #if os(macOS)
         .onChange(of: mainWindowNavigation.request) {
             openRequestedMainWindowDestination()

@@ -226,6 +226,17 @@ final class MusicPlayerViewModel: ObservableObject {
         schedulePlayerStateRefresh()
     }
 
+    func refreshMetadata(from librarySongs: [Song]) {
+        guard !librarySongs.isEmpty else { return }
+        let songsByID = Dictionary(librarySongs.map { ($0.id, $0) }, uniquingKeysWith: { _, latest in latest })
+
+        if let currentSong, let updatedSong = songsByID[currentSong.id] {
+            self.currentSong = updatedSong
+        }
+        queueSongs = queueSongs.map { songsByID[$0.id] ?? $0 }
+        sourceQueueSongs = sourceQueueSongs.map { songsByID[$0.id] ?? $0 }
+    }
+
     func savePlaybackPosition() {
         syncPlayerState()
         persistPlaybackSnapshot(force: true)

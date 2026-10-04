@@ -18,6 +18,7 @@ struct NowPlayingView: View {
     @ObservedObject var player: MusicPlayerViewModel
     let onOpenArtist: ((Song) -> Void)?
     let onOpenAlbum: ((Song) -> Void)?
+    let animatesLayoutChanges: Bool
     @State private var isShowingQueue = false
     @State private var detailsSong: Song?
     @State private var artworkLoadState = HighResolutionArtworkState()
@@ -25,11 +26,13 @@ struct NowPlayingView: View {
     init(
         player: MusicPlayerViewModel,
         onOpenArtist: ((Song) -> Void)? = nil,
-        onOpenAlbum: ((Song) -> Void)? = nil
+        onOpenAlbum: ((Song) -> Void)? = nil,
+        animatesLayoutChanges: Bool = true
     ) {
         self.player = player
         self.onOpenArtist = onOpenArtist
         self.onOpenAlbum = onOpenAlbum
+        self.animatesLayoutChanges = animatesLayoutChanges
     }
 
     var body: some View {
@@ -66,7 +69,8 @@ struct NowPlayingView: View {
                         detailsSong = song
                     },
                     onOpenArtist: onOpenArtist,
-                    onOpenAlbum: onOpenAlbum
+                    onOpenAlbum: onOpenAlbum,
+                    animatesLayoutChanges: animatesLayoutChanges
                 )
             } else {
                 ContentUnavailableView(
@@ -152,6 +156,7 @@ private struct NowPlayingContent: View {
     let onShowTrackInfo: () -> Void
     let onOpenArtist: ((Song) -> Void)?
     let onOpenAlbum: ((Song) -> Void)?
+    let animatesLayoutChanges: Bool
     @StateObject private var immersiveControls = ImmersiveControlsVisibility()
     @Namespace private var layoutTransition
 
@@ -163,32 +168,33 @@ private struct NowPlayingContent: View {
                 switch metrics.layout {
                 case .immersive:
                     immersiveLayout(metrics: metrics)
-                        .transition(.opacity)
+                        .transition(layoutTransitionEffect)
                 case .fullHorizontal:
                     horizontalLayout(metrics: metrics)
-                        .transition(.opacity)
+                        .transition(layoutTransitionEffect)
                 case .fullVertical:
                     verticalLayout(metrics: metrics)
-                        .transition(.opacity)
+                        .transition(layoutTransitionEffect)
                 case .compactHorizontal:
                     compactHorizontalLayout(metrics: metrics, showsTransportControls: true)
-                        .transition(.opacity)
+                        .transition(layoutTransitionEffect)
                 case .compactVertical:
                     compactVerticalLayout(metrics: metrics, showsTransportControls: true)
-                        .transition(.opacity)
+                        .transition(layoutTransitionEffect)
                 case .minimalWideHorizontal:
                     minimalWideHorizontalLayout(metrics: metrics)
-                        .transition(.opacity)
+                        .transition(layoutTransitionEffect)
                 case .minimalHorizontal:
                     compactHorizontalLayout(metrics: metrics, showsTransportControls: false)
-                        .transition(.opacity)
+                        .transition(layoutTransitionEffect)
                 case .minimalVertical:
                     compactVerticalLayout(metrics: metrics, showsTransportControls: false)
-                        .transition(.opacity)
+                        .transition(layoutTransitionEffect)
                 }
             }
             .animation(
-                accessibilityReduceMotion ? nil : .easeInOut(duration: 0.15),
+                accessibilityReduceMotion || !animatesLayoutChanges
+                    ? nil : .easeInOut(duration: 0.15),
                 value: metrics.layout
             )
             .onChange(
@@ -217,6 +223,10 @@ private struct NowPlayingContent: View {
             immersiveControls.restoreCursor()
         }
 #endif
+    }
+
+    private var layoutTransitionEffect: AnyTransition {
+        animatesLayoutChanges && !accessibilityReduceMotion ? .opacity : .identity
     }
 
     private func immersiveLayout(metrics: NowPlayingLayoutMetrics) -> some View {
@@ -390,14 +400,19 @@ private struct NowPlayingContent: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    @ViewBuilder
     private func artwork(size: CGFloat) -> some View {
-        SongArtwork(
+        let image = SongArtwork(
             artwork: song.artwork,
             size: size,
             usesHighResolutionSource: true,
             highResolutionState: artworkLoadState
         )
-        .matchedGeometryEffect(id: "artwork", in: layoutTransition)
+        if animatesLayoutChanges && !accessibilityReduceMotion {
+            image.matchedGeometryEffect(id: "artwork", in: layoutTransition)
+        } else {
+            image
+        }
     }
 
     private func detailsAndControls(metrics: NowPlayingLayoutMetrics) -> some View {
