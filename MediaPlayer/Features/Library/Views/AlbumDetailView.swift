@@ -9,9 +9,8 @@ import SwiftUI
 
 struct AlbumDetailView: View {
 #if os(macOS)
-    @Environment(\.dismiss) private var dismiss
-    @State private var isShowingEditor = false
-    @State private var didSaveMetadata = false
+    @Environment(\.openWindow) private var openWindow
+    @EnvironmentObject private var tagEditor: TagEditorModel
 #endif
     let album: LibraryAlbum
     let currentSongState: CurrentSongState
@@ -30,15 +29,9 @@ struct AlbumDetailView: View {
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button("Edit Album", systemImage: "pencil") {
-                    isShowingEditor = true
+                    tagEditor.open(.album(title: album.title, artist: album.artistName))
+                    openWindow(id: TagEditorModel.windowID)
                 }
-            }
-        }
-        .sheet(isPresented: $isShowingEditor, onDismiss: {
-            if didSaveMetadata { dismiss() }
-        }) {
-            LibraryGroupMetadataEditorView(target: .album(album)) {
-                didSaveMetadata = true
             }
         }
 #endif

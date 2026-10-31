@@ -12,6 +12,7 @@ struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
 #if os(macOS)
     @Environment(\.openWindow) private var openWindow
+    @EnvironmentObject private var tagEditor: TagEditorModel
 #endif
 
     let player: MusicPlayerViewModel
@@ -159,6 +160,10 @@ struct ContentView: View {
 
                     SettingsLink {
                         Label("Settings", systemImage: "gearshape")
+                    }
+                    Button("Tag Editor", systemImage: "tag") {
+                        tagEditor.open()
+                        openWindow(id: TagEditorModel.windowID)
                     }
                 }
 #else
@@ -341,6 +346,7 @@ struct ContentView: View {
         mainWindowNavigation: MainWindowNavigation()
     )
     .environmentObject(ArtworkAccentTheme())
+    .environmentObject(TagEditorModel())
 #else
     ContentView(player: MusicPlayerViewModel(), library: MusicLibraryViewModel())
         .environmentObject(ArtworkAccentTheme())

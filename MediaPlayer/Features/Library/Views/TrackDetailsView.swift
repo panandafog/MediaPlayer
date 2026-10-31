@@ -12,8 +12,8 @@ struct TrackDetailsView: View {
     @State private var details: TrackDetails
     @State private var isLoading = true
 #if os(macOS)
-    @State private var isShowingEditor = false
-    @State private var didSaveMetadata = false
+    @Environment(\.openWindow) private var openWindow
+    @EnvironmentObject private var tagEditor: TagEditorModel
 #endif
 
     let song: Song
@@ -40,7 +40,8 @@ struct TrackDetailsView: View {
 #if os(macOS)
                 ToolbarItem(placement: .primaryAction) {
                     Button("Edit", systemImage: "pencil") {
-                        isShowingEditor = true
+                        tagEditor.open(.song(title: song.title, artist: song.artistName, album: song.albumTitle ?? ""))
+                        openWindow(id: TagEditorModel.windowID)
                     }
                 }
 #endif
@@ -56,15 +57,6 @@ struct TrackDetailsView: View {
         }
 #if os(macOS)
         .frame(minWidth: 420, minHeight: 540)
-        .sheet(isPresented: $isShowingEditor, onDismiss: {
-            if didSaveMetadata {
-                dismiss()
-            }
-        }) {
-            TrackMetadataEditorView(song: song) {
-                didSaveMetadata = true
-            }
-        }
 #endif
     }
 

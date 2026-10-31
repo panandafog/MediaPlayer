@@ -9,9 +9,8 @@ import SwiftUI
 
 struct ArtistDetailView: View {
 #if os(macOS)
-    @Environment(\.dismiss) private var dismiss
-    @State private var isShowingEditor = false
-    @State private var didSaveMetadata = false
+    @Environment(\.openWindow) private var openWindow
+    @EnvironmentObject private var tagEditor: TagEditorModel
 #endif
     let artist: LibraryArtist
     let currentSongState: CurrentSongState
@@ -45,7 +44,8 @@ struct ArtistDetailView: View {
 #if os(macOS)
             ToolbarItem(placement: .primaryAction) {
                 Button("Edit Artist", systemImage: "pencil") {
-                    isShowingEditor = true
+                    tagEditor.open(.artist(artist.name))
+                    openWindow(id: TagEditorModel.windowID)
                 }
             }
 #endif
@@ -53,14 +53,5 @@ struct ArtistDetailView: View {
                 ArtistLibraryMenu(selection: $section)
             }
         }
-#if os(macOS)
-        .sheet(isPresented: $isShowingEditor, onDismiss: {
-            if didSaveMetadata { dismiss() }
-        }) {
-            LibraryGroupMetadataEditorView(target: .artist(artist)) {
-                didSaveMetadata = true
-            }
-        }
-#endif
     }
 }

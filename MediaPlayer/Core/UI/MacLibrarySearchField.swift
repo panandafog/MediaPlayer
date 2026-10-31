@@ -10,6 +10,8 @@ import SwiftUI
 struct MacLibrarySearchField: NSViewRepresentable {
     @EnvironmentObject private var artworkAccentTheme: ArtworkAccentTheme
     @Binding var text: String
+    var prompt = "Search library"
+    var accessibilityLabel = "Search music library"
 
     func makeCoordinator() -> Coordinator {
         Coordinator(text: $text, accentColor: artworkAccentTheme.color)
@@ -17,8 +19,8 @@ struct MacLibrarySearchField: NSViewRepresentable {
 
     func makeNSView(context: Context) -> NSSearchField {
         let searchField = NSSearchField()
-        searchField.placeholderString = "Search library"
-        searchField.setAccessibilityLabel("Search music library")
+        searchField.placeholderString = prompt
+        searchField.setAccessibilityLabel(accessibilityLabel)
         searchField.sendsSearchStringImmediately = true
         searchField.delegate = context.coordinator
         return searchField

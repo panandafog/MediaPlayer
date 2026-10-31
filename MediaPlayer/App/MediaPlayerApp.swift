@@ -16,6 +16,7 @@ struct MediaPlayerApp: App {
 #if os(macOS)
     @StateObject private var mainWindowNavigation = MainWindowNavigation()
     @StateObject private var artworkDockIcon = ArtworkDockIconController()
+    @StateObject private var tagEditor = TagEditorModel()
 #endif
 
     var body: some Scene {
@@ -32,9 +33,11 @@ struct MediaPlayerApp: App {
                     minHeight: AppLayout.mainWindowMinimumSize.height
                 )
             }
+            .environmentObject(tagEditor)
             .modifier(ArtworkDockIconObserver(player: player, controller: artworkDockIcon))
         }
         .windowResizability(.contentMinSize)
+        .commands { TagEditorCommands(model: tagEditor) }
 
         Window("Player", id: PlayerWindow.id) {
             AppAccentRoot(
@@ -49,6 +52,7 @@ struct MediaPlayerApp: App {
                 )
                 .windowFullScreenBehavior(.enabled)
             }
+            .environmentObject(tagEditor)
             .modifier(ArtworkDockIconObserver(player: player, controller: artworkDockIcon))
         }
         .defaultSize(
@@ -57,6 +61,14 @@ struct MediaPlayerApp: App {
         )
         .windowResizability(.contentMinSize)
         .windowStyle(.hiddenTitleBar)
+
+        Window("Tag Editor", id: TagEditorModel.windowID) {
+            AppAccentRoot(player: player, theme: artworkAccentTheme) {
+                TagEditorView(model: tagEditor)
+            }
+        }
+        .defaultSize(width: 1100, height: 760)
+        .windowResizability(.contentMinSize)
 
         Settings {
             AppAccentRoot(player: player, theme: artworkAccentTheme) {
@@ -115,6 +127,21 @@ private struct AppAccentRoot<Content: View>: View {
 }
 
 #if os(macOS)
+private struct TagEditorCommands: Commands {
+    @Environment(\.openWindow) private var openWindow
+    let model: TagEditorModel
+
+    var body: some Commands {
+        CommandGroup(after: .newItem) {
+            Button("Tag Editor…") {
+                model.open()
+                openWindow(id: TagEditorModel.windowID)
+            }
+            .keyboardShortcut("e", modifiers: [.command, .shift])
+        }
+    }
+}
+
 private struct ArtworkDockIconObserver: ViewModifier {
     @ObservedObject var player: MusicPlayerViewModel
     @AppStorage(PlayerSettingsKey.usesArtworkDockIcon)
